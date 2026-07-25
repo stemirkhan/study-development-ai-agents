@@ -1,0 +1,905 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Визуальная пошаговая иллюстрация работы ReAct-агента">
+  <title>Как работает ReAct-агент</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #f7f7f8;
+      --surface: #ffffff;
+      --surface-muted: #f4f5f7;
+      --border: #e1e4e8;
+      --border-dark: #c9ced6;
+      --text: #1f2328;
+      --muted: #656d76;
+      --blue: #2563eb;
+      --blue-light: #eff6ff;
+      --green: #1f883d;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-width: 320px;
+      margin: 0;
+      color: var(--text);
+      font-family:
+        -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+        sans-serif;
+      background: var(--page);
+    }
+
+    button,
+    select {
+      font: inherit;
+    }
+
+    button {
+      color: inherit;
+    }
+
+    .page {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 48px 0;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+
+    .lesson {
+      display: grid;
+      grid-template-columns: 235px minmax(0, 1fr);
+      overflow: hidden;
+    }
+
+    .steps {
+      padding: 14px;
+      border-right: 1px solid var(--border);
+      background: var(--surface-muted);
+    }
+
+    .step-button {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr);
+      width: 100%;
+      gap: 10px;
+      align-items: center;
+      padding: 9px;
+      text-align: left;
+      cursor: pointer;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      background: transparent;
+      transition: background 160ms ease, border-color 160ms ease;
+    }
+
+    .step-button + .step-button {
+      margin-top: 3px;
+    }
+
+    .step-button:hover {
+      background: #e9ebef;
+    }
+
+    .step-button.is-current {
+      border-color: #bfdbfe;
+      background: var(--blue-light);
+    }
+
+    .step-button-number {
+      display: grid;
+      width: 27px;
+      height: 27px;
+      place-items: center;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid var(--border-dark);
+      border-radius: 50%;
+      background: var(--surface);
+    }
+
+    .step-button.is-complete .step-button-number {
+      color: var(--green);
+      border-color: #a6d5b1;
+      background: #effaf2;
+    }
+
+    .step-button.is-current .step-button-number {
+      color: white;
+      border-color: var(--blue);
+      background: var(--blue);
+    }
+
+    .step-button-title {
+      overflow: hidden;
+      font-size: 13px;
+      font-weight: 600;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .content {
+      min-width: 0;
+    }
+
+    .progress {
+      height: 3px;
+      background: var(--surface-muted);
+    }
+
+    .progress-fill {
+      width: 12.5%;
+      height: 100%;
+      background: var(--blue);
+      transition: width 240ms ease;
+    }
+
+    .step-content {
+      padding: 30px 32px 34px;
+    }
+
+    .step-meta {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 11px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .owner {
+      padding: 3px 7px;
+      color: var(--blue);
+      font-weight: 600;
+      border: 1px solid #bfdbfe;
+      border-radius: 5px;
+      background: var(--blue-light);
+    }
+
+    .step-content h1 {
+      margin: 0;
+      font-size: clamp(24px, 4vw, 32px);
+      line-height: 1.2;
+      letter-spacing: -0.025em;
+    }
+
+    .step-content > p {
+      max-width: 780px;
+      margin: 12px 0 22px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.65;
+    }
+
+    .scene-viewport {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface-muted);
+      scrollbar-color: var(--border-dark) transparent;
+    }
+
+    .scene {
+      position: relative;
+      width: 780px;
+      min-width: 780px;
+      height: 414px;
+      margin: 0 auto;
+      background:
+        linear-gradient(to right, transparent 19px, #eceef1 20px, transparent 21px),
+        linear-gradient(to bottom, transparent 19px, #eceef1 20px, transparent 21px);
+      background-size: 20px 20px;
+    }
+
+    .context-strip {
+      position: absolute;
+      top: 16px;
+      right: 18px;
+      left: 18px;
+      z-index: 3;
+      display: flex;
+      min-height: 58px;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 13px;
+      border: 1px solid var(--border-dark);
+      border-radius: 7px;
+      background: var(--surface);
+    }
+
+    .context-title {
+      flex: 0 0 auto;
+      padding-right: 12px;
+      font-size: 12px;
+      font-weight: 700;
+      border-right: 1px solid var(--border);
+    }
+
+    .context-fields {
+      display: flex;
+      min-width: 0;
+      gap: 8px;
+      overflow-x: auto;
+    }
+
+    .context-field {
+      flex: 0 0 auto;
+      padding: 5px 7px;
+      color: var(--muted);
+      font-size: 10px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: var(--surface-muted);
+    }
+
+    .context-field b {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .context-value {
+      color: var(--blue);
+      font-style: normal;
+    }
+
+    .edges {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .scene-edge {
+      fill: none;
+      stroke: #aeb4bd;
+      stroke-width: 1.5;
+      marker-end: url("#arrow-gray");
+      transition: stroke 180ms ease, stroke-width 180ms ease;
+    }
+
+    .scene-edge.is-active {
+      stroke: var(--blue);
+      stroke-width: 2.2;
+      stroke-dasharray: 7 5;
+      marker-end: url("#arrow-blue");
+      animation: edge-flow 700ms linear infinite;
+    }
+
+    .scene-node {
+      position: absolute;
+      z-index: 2;
+      display: grid;
+      width: 116px;
+      min-height: 62px;
+      padding: 9px;
+      place-content: center;
+      text-align: center;
+      border: 1px solid var(--border-dark);
+      border-radius: 7px;
+      background: var(--surface);
+      transition:
+        border-color 180ms ease,
+        background 180ms ease,
+        transform 180ms ease;
+    }
+
+    .scene-node strong {
+      font-size: 12px;
+    }
+
+    .scene-node small {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 9px;
+      line-height: 1.3;
+    }
+
+    .scene-node.is-active {
+      border-color: var(--blue);
+      background: var(--blue-light);
+      transform: translateY(-2px);
+      animation: node-in 240ms ease-out;
+    }
+
+    .node-user { top: 135px; left: 20px; }
+    .node-llm-1 { top: 135px; left: 174px; }
+    .node-json { top: 135px; left: 328px; }
+    .node-python { top: 135px; left: 482px; }
+    .node-tool { top: 135px; left: 636px; }
+    .node-observation { top: 263px; left: 482px; }
+    .node-llm-2 { top: 263px; left: 328px; }
+    .node-final { top: 263px; left: 174px; }
+
+    .role-bar {
+      position: absolute;
+      right: 18px;
+      bottom: 15px;
+      left: 18px;
+      z-index: 3;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .role {
+      padding: 8px 10px;
+      color: var(--muted);
+      font-size: 10px;
+      text-align: center;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      transition: border-color 180ms ease, background 180ms ease;
+    }
+
+    .role b {
+      display: block;
+      margin-bottom: 2px;
+      color: var(--text);
+      font-size: 11px;
+    }
+
+    .role.is-active {
+      color: #1e40af;
+      border-color: #bfdbfe;
+      background: var(--blue-light);
+    }
+
+    .step-content.is-changing {
+      animation: content-in 220ms ease-out;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 32px;
+      border-top: 1px solid var(--border);
+    }
+
+    .control-group {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .button {
+      height: 36px;
+      padding: 0 13px;
+      cursor: pointer;
+      border: 1px solid var(--border-dark);
+      border-radius: 7px;
+      background: var(--surface);
+    }
+
+    .button:hover {
+      background: var(--surface-muted);
+    }
+
+    .button-primary {
+      min-width: 112px;
+      color: white;
+      border-color: var(--blue);
+      background: var(--blue);
+    }
+
+    .button-primary:hover {
+      background: #1d4ed8;
+    }
+
+    .speed-label {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    select {
+      height: 34px;
+      padding: 0 8px;
+      color: var(--text);
+      border: 1px solid var(--border-dark);
+      border-radius: 6px;
+      background: var(--surface);
+    }
+
+    button:focus-visible,
+    select:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+    }
+
+    @keyframes edge-flow {
+      to {
+        stroke-dashoffset: -12;
+      }
+    }
+
+    @keyframes node-in {
+      from {
+        opacity: 0.55;
+        transform: translateY(2px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(-2px);
+      }
+    }
+
+    @keyframes content-in {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 780px) {
+      .page {
+        width: min(100% - 20px, 1180px);
+        padding: 28px 0;
+      }
+
+      .lesson {
+        grid-template-columns: 1fr;
+      }
+
+      .steps {
+        display: flex;
+        gap: 5px;
+        overflow-x: auto;
+        padding: 10px;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .step-button {
+        flex: 0 0 auto;
+        width: auto;
+        grid-template-columns: 28px;
+        padding: 6px;
+      }
+
+      .step-button + .step-button {
+        margin-top: 0;
+      }
+
+      .step-button-title {
+        display: none;
+      }
+
+      .step-content {
+        padding: 24px 18px;
+      }
+
+      .controls {
+        padding: 13px 18px;
+      }
+    }
+
+    @media (max-width: 450px) {
+      .controls {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .control-group {
+        justify-content: space-between;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="card lesson" aria-label="ReAct: пошаговая визуализация">
+      <nav class="steps" id="stepNavigation" aria-label="Шаги"></nav>
+
+      <div class="content">
+        <div class="progress" aria-hidden="true">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <article class="step-content" id="stepContent" aria-live="polite">
+          <div class="step-meta">
+            <span id="stepNumber">Шаг 1 из 8</span>
+            <span class="owner" id="stepOwner">Пользователь</span>
+          </div>
+          <h1 id="stepTitle"></h1>
+          <p id="stepDescription"></p>
+
+          <div class="scene-viewport" id="sceneViewport">
+            <div class="scene">
+              <div class="context-strip">
+                <span class="context-title">Контекст агента</span>
+                <div class="context-fields">
+                  <span class="context-field">
+                    <b>фаза</b> =
+                    <i class="context-value" id="contextPhase">Запрос</i>
+                  </span>
+                  <span class="context-field">
+                    <b>последнее событие</b> =
+                    <i class="context-value" id="contextEvent">вопрос пользователя</i>
+                  </span>
+                  <span class="context-field">
+                    <b>исполнитель</b> =
+                    <i class="context-value" id="contextExecutor">Human</i>
+                  </span>
+                </div>
+              </div>
+
+              <svg class="edges" viewBox="0 0 780 414" aria-hidden="true">
+                <defs>
+                  <marker id="arrow-gray" viewBox="0 0 10 10" refX="9" refY="5"
+                          markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#aeb4bd"></path>
+                  </marker>
+                  <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5"
+                          markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#2563eb"></path>
+                  </marker>
+                </defs>
+
+                <path class="scene-edge" data-edge="user-llm"
+                      d="M 136 166 L 171 166"></path>
+                <path class="scene-edge" data-edge="llm-json"
+                      d="M 290 166 L 325 166"></path>
+                <path class="scene-edge" data-edge="json-python"
+                      d="M 444 166 L 479 166"></path>
+                <path class="scene-edge" data-edge="python-tool"
+                      d="M 598 166 L 633 166"></path>
+                <path class="scene-edge" data-edge="tool-observation"
+                      d="M 694 197 C 694 239, 610 292, 601 294"></path>
+                <path class="scene-edge" data-edge="observation-llm"
+                      d="M 482 294 L 447 294"></path>
+                <path class="scene-edge" data-edge="llm-final"
+                      d="M 328 294 L 293 294"></path>
+              </svg>
+
+              <div class="scene-node node-user" data-node="user">
+                <strong>Пользователь</strong>
+                <small>ставит задачу</small>
+              </div>
+              <div class="scene-node node-llm-1" data-node="llm-1">
+                <strong>LLM</strong>
+                <small>выбирает Action</small>
+              </div>
+              <div class="scene-node node-json" data-node="json">
+                <strong>JSON</strong>
+                <small>имя tool + arguments</small>
+              </div>
+              <div class="scene-node node-python" data-node="python">
+                <strong>Python</strong>
+                <small>парсит и проверяет</small>
+              </div>
+              <div class="scene-node node-tool" data-node="tool">
+                <strong>calculator()</strong>
+                <small>выполняет вычисление</small>
+              </div>
+              <div class="scene-node node-observation" data-node="observation">
+                <strong>Observation</strong>
+                <small>result = 66</small>
+              </div>
+              <div class="scene-node node-llm-2" data-node="llm-2">
+                <strong>LLM</strong>
+                <small>видит результат</small>
+              </div>
+              <div class="scene-node node-final" data-node="final">
+                <strong>Final</strong>
+                <small>ответ пользователю</small>
+              </div>
+
+              <div class="role-bar">
+                <div class="role" data-role="llm">
+                  <b>LLM</b>
+                  предлагает следующее действие
+                </div>
+                <div class="role" data-role="python">
+                  <b>Python</b>
+                  проверяет и управляет
+                </div>
+                <div class="role" data-role="tool">
+                  <b>Инструмент</b>
+                  выполняет точную операцию
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <footer class="controls">
+          <div class="control-group">
+            <button class="button" id="previousButton" type="button">Назад</button>
+            <button class="button button-primary" id="playButton" type="button">Пауза</button>
+            <button class="button" id="nextButton" type="button">Далее</button>
+          </div>
+
+          <div class="control-group">
+            <label class="speed-label" for="speedSelect">Скорость</label>
+            <select id="speedSelect">
+              <option value="3800">Медленно</option>
+              <option value="2800" selected>Обычно</option>
+              <option value="1800">Быстро</option>
+            </select>
+          </div>
+        </footer>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const steps = [
+      {
+        tab: "Вопрос",
+        owner: "Пользователь",
+        title: "Пользователь формулирует задачу",
+        description:
+          "Вопрос становится первым сообщением в контексте агента. На этом этапе LLM и инструменты ещё ничего не выполняют.",
+        nodes: ["user"],
+        edges: [],
+        role: null,
+        context: ["Запрос", "вопрос пользователя", "Human"]
+      },
+      {
+        tab: "Reasoning",
+        owner: "LLM",
+        title: "LLM выбирает следующее действие",
+        description:
+          "Модель получает вопрос и описание доступных инструментов. Она решает, что вычисление надёжнее передать калькулятору.",
+        nodes: ["llm-1"],
+        edges: ["user-llm"],
+        role: "llm",
+        context: ["Reasoning", "выбор calculator", "LLM"]
+      },
+      {
+        tab: "JSON Action",
+        owner: "LLM",
+        title: "Решение модели становится JSON",
+        description:
+          "LLM не запускает функцию. Она только формирует текст с именем calculator и аргументом expression.",
+        nodes: ["json"],
+        edges: ["llm-json"],
+        role: "llm",
+        context: ["Action", "calculator + expression", "LLM"]
+      },
+      {
+        tab: "Парсинг",
+        owner: "Python",
+        title: "Python проверяет предложение модели",
+        description:
+          "Оркестратор разбирает JSON, проверяет имя инструмента и создаёт объект ToolCall. Только разрешённые инструменты могут быть вызваны.",
+        nodes: ["python"],
+        edges: ["json-python"],
+        role: "python",
+        context: ["Validation", "ToolCall создан", "Python"]
+      },
+      {
+        tab: "Tool call",
+        owner: "Инструмент",
+        title: "Python запускает calculator()",
+        description:
+          "Диспетчер находит функцию calculator в словаре TOOLS и передаёт ей expression. Здесь происходит настоящий вызов Python-функции.",
+        nodes: ["tool"],
+        edges: ["python-tool"],
+        role: "tool",
+        context: ["Acting", "(17 + 5) × 3", "calculator()"]
+      },
+      {
+        tab: "Observation",
+        owner: "Python",
+        title: "Результат превращается в Observation",
+        description:
+          "Калькулятор возвращает 66. Оркестратор добавляет это наблюдение в историю, не позволяя модели выдумать результат.",
+        nodes: ["observation"],
+        edges: ["tool-observation"],
+        role: "python",
+        context: ["Observation", "result = 66", "Python"]
+      },
+      {
+        tab: "Новый цикл",
+        owner: "LLM",
+        title: "LLM получает обновлённый контекст",
+        description:
+          "Модель снова вызывается и теперь видит исходный вопрос, JSON Action и Observation. Она решает, что информации достаточно.",
+        nodes: ["llm-2"],
+        edges: ["observation-llm"],
+        role: "llm",
+        context: ["Reasoning", "данных достаточно", "LLM"]
+      },
+      {
+        tab: "Final",
+        owner: "LLM → Python",
+        title: "Агент завершает ReAct-цикл",
+        description:
+          "Модель возвращает action = final. Python больше не вызывает инструменты и передаёт готовый ответ пользователю.",
+        nodes: ["final"],
+        edges: ["llm-final"],
+        role: "python",
+        context: ["Final", "ответ с результатом 66", "Python"]
+      }
+    ];
+
+    const navigation = document.getElementById("stepNavigation");
+    const progressFill = document.getElementById("progressFill");
+    const stepContent = document.getElementById("stepContent");
+    const stepNumber = document.getElementById("stepNumber");
+    const stepOwner = document.getElementById("stepOwner");
+    const stepTitle = document.getElementById("stepTitle");
+    const stepDescription = document.getElementById("stepDescription");
+    const previousButton = document.getElementById("previousButton");
+    const nextButton = document.getElementById("nextButton");
+    const playButton = document.getElementById("playButton");
+    const speedSelect = document.getElementById("speedSelect");
+    const sceneViewport = document.getElementById("sceneViewport");
+    const contextPhase = document.getElementById("contextPhase");
+    const contextEvent = document.getElementById("contextEvent");
+    const contextExecutor = document.getElementById("contextExecutor");
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    let currentStep = 0;
+    let delay = Number(speedSelect.value);
+    let isPlaying = !reducedMotion;
+    let timer = null;
+
+    const stepButtons = steps.map((step, index) => {
+      const button = document.createElement("button");
+      const number = document.createElement("span");
+      const title = document.createElement("span");
+
+      button.type = "button";
+      button.className = "step-button";
+      number.className = "step-button-number";
+      number.textContent = String(index + 1);
+      title.className = "step-button-title";
+      title.textContent = step.tab;
+
+      button.append(number, title);
+      button.addEventListener("click", () => {
+        pause();
+        currentStep = index;
+        render();
+      });
+
+      navigation.append(button);
+      return button;
+    });
+
+    function centerActiveNode() {
+      if (sceneViewport.scrollWidth <= sceneViewport.clientWidth) return;
+
+      const activeNode = document.querySelector(".scene-node.is-active");
+      if (!activeNode) return;
+
+      const viewportRect = sceneViewport.getBoundingClientRect();
+      const nodeRect = activeNode.getBoundingClientRect();
+      const nodeCenter =
+        nodeRect.left - viewportRect.left +
+        sceneViewport.scrollLeft +
+        nodeRect.width / 2;
+
+      sceneViewport.scrollTo({
+        left: Math.max(0, nodeCenter - sceneViewport.clientWidth / 2),
+        behavior: reducedMotion ? "auto" : "smooth"
+      });
+    }
+
+    function render() {
+      const step = steps[currentStep];
+
+      stepButtons.forEach((button, index) => {
+        const isCurrent = index === currentStep;
+        button.classList.toggle("is-current", isCurrent);
+        button.classList.toggle("is-complete", index < currentStep);
+        button.setAttribute("aria-current", isCurrent ? "step" : "false");
+      });
+
+      document.querySelectorAll(".scene-node").forEach((node) => {
+        node.classList.toggle("is-active", step.nodes.includes(node.dataset.node));
+      });
+
+      document.querySelectorAll(".scene-edge").forEach((edge) => {
+        edge.classList.toggle("is-active", step.edges.includes(edge.dataset.edge));
+      });
+
+      document.querySelectorAll(".role").forEach((role) => {
+        role.classList.toggle("is-active", role.dataset.role === step.role);
+      });
+
+      [contextPhase.textContent, contextEvent.textContent, contextExecutor.textContent] =
+        step.context;
+
+      progressFill.style.width = `${((currentStep + 1) / steps.length) * 100}%`;
+      stepNumber.textContent = `Шаг ${currentStep + 1} из ${steps.length}`;
+      stepOwner.textContent = step.owner;
+      stepTitle.textContent = step.title;
+      stepDescription.textContent = step.description;
+
+      stepContent.classList.remove("is-changing");
+      void stepContent.offsetWidth;
+      stepContent.classList.add("is-changing");
+
+      playButton.textContent = isPlaying ? "Пауза" : "Продолжить";
+      window.requestAnimationFrame(centerActiveNode);
+      scheduleNext();
+    }
+
+    function scheduleNext() {
+      window.clearTimeout(timer);
+      if (!isPlaying) return;
+
+      timer = window.setTimeout(() => {
+        currentStep = (currentStep + 1) % steps.length;
+        render();
+      }, delay);
+    }
+
+    function pause() {
+      isPlaying = false;
+      window.clearTimeout(timer);
+      playButton.textContent = "Продолжить";
+    }
+
+    function move(direction) {
+      pause();
+      currentStep = (currentStep + direction + steps.length) % steps.length;
+      render();
+    }
+
+    previousButton.addEventListener("click", () => move(-1));
+    nextButton.addEventListener("click", () => move(1));
+
+    playButton.addEventListener("click", () => {
+      isPlaying = !isPlaying;
+      render();
+    });
+
+    speedSelect.addEventListener("change", () => {
+      delay = Number(speedSelect.value);
+      scheduleNext();
+    });
+
+    window.addEventListener("resize", () => {
+      window.requestAnimationFrame(centerActiveNode);
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.target.matches("button, select")) return;
+
+      if (event.key === "ArrowLeft") {
+        move(-1);
+      } else if (event.key === "ArrowRight") {
+        move(1);
+      } else if (event.code === "Space") {
+        event.preventDefault();
+        isPlaying = !isPlaying;
+        render();
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>
