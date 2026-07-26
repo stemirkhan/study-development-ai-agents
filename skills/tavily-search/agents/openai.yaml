@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tavily Search"
+  short_description: "Ищет свежую информацию через Tavily"
+  default_prompt: "Используй $tavily-search, чтобы найти и проверить актуальную информацию с источниками."
