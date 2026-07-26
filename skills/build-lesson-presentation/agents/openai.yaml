@@ -1,0 +1,4 @@
+interface:
+  display_name: "Lesson Presentation Builder"
+  short_description: "Создаёт спокойные интерактивные HTML-слайды"
+  default_prompt: "Используй $build-lesson-presentation, чтобы создать интерактивную HTML-презентацию для текущего урока."
