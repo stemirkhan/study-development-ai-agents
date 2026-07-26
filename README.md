@@ -22,59 +22,28 @@ security, evals и production capstone.
 ├── docs/
 │   ├── senior_ai_agent_engineer_2026.md
 │   └── senior_ai_agent_engineer_2026.pdf
-├── lessons/
-│   └── legacy/
-│       ├── README.md
-│       ├── lesson_1_basic_react_agent/
-│       └── lesson_2_langgraph_react_agent/
+├── skills/
+│   ├── build-lesson-presentation/
+│   └── tavily-search/
 ├── pyproject.toml
 └── uv.lock
 ```
 
-Старые уроки сохранены в `lessons/legacy`, потому что они написаны по
-предыдущей последовательности обучения. Новые материалы будут появляться
-непосредственно в `lessons/module_XX_topic` по мере прохождения трека.
-Пустые директории для всех 14 модулей заранее не создаются.
+Новые материалы будут появляться в `lessons/module_XX_topic` по мере
+прохождения трека. Пустые директории для всех 14 модулей заранее не создаются.
 
 ## Быстрый старт
 
 Требования:
 
 - Python 3.13+;
-- [uv](https://docs.astral.sh/uv/);
-- `OPENAI_API_KEY` только для live-запуска архивных примеров.
+- [uv](https://docs.astral.sh/uv/).
 
 Установка зависимостей:
 
 ```bash
 uv sync
 ```
-
-Проверка CLI без API-вызова:
-
-```bash
-uv run python -m lessons.legacy.lesson_1_basic_react_agent --help
-uv run python -m lessons.legacy.lesson_2_langgraph_react_agent --help
-```
-
-Live-запуск:
-
-```bash
-export OPENAI_API_KEY="..."
-export OPENAI_MODEL="gpt-5-mini"
-
-uv run python -m lessons.legacy.lesson_1_basic_react_agent \
-  "Сколько будет (17 + 25) * 3?"
-```
-
-## Архивные уроки
-
-| Урок | Роль в новом треке | Когда открывать |
-|---|---|---|
-| [ReAct на чистом Python](lessons/legacy/lesson_1_basic_react_agent/README.md) | Исторический manual-JSON baseline, не замена native Tool Calling | Перед модулем 8 |
-| [ReAct на LangGraph](lessons/legacy/lesson_2_langgraph_react_agent/README.md) | Вводный framework mapping, не замена собственного durable executor | После модулей 6–7 |
-
-Подробнее: [описание legacy-раздела](lessons/legacy/README.md).
 
 ## Правило для новых уроков
 
