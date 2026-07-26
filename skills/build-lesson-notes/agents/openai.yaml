@@ -1,4 +1,4 @@
 interface:
-  display_name: "Конспекты уроков"
-  short_description: "Единые MD- и PDF-конспекты для уроков"
-  default_prompt: "Используй $build-lesson-notes, чтобы создать конспект текущего урока в Markdown и PDF."
+  display_name: "Конспекты со схемами"
+  short_description: "MD/PDF-конспекты с локальными HTML-схемами"
+  default_prompt: "Используй $build-lesson-notes, чтобы создать конспект текущего урока в Markdown и PDF и добавить схемы там, где они проясняют материал."

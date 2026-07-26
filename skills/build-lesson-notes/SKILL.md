@@ -1,6 +1,6 @@
 ---
 name: build-lesson-notes
-description: Создавать, обновлять и проверять единообразные учебные конспекты уроков в Markdown и производном PDF для Obsidian. Использовать при просьбах написать конспект модуля или урока, превратить учебные материалы в заметку, обновить существующий конспект, проверить его структуру либо пересобрать PDF.
+description: Создавать, обновлять и проверять единообразные учебные конспекты уроков в Markdown и производном PDF для Obsidian, включая локальные учебные схемы из HTML в PNG. Использовать при просьбах написать конспект модуля или урока, превратить учебные материалы в заметку, добавить поясняющую архитектурную/flow/sequence-схему, обновить существующий конспект, проверить его структуру либо пересобрать PDF.
 ---
 
 # Конспекты уроков
@@ -10,7 +10,9 @@ description: Создавать, обновлять и проверять еди
 
 ## Обязательные принципы
 
-- Считать Markdown единственным source of truth. Не редактировать PDF вручную.
+- Считать Markdown source of truth для текста, порядка и ссылок конспекта.
+  Для каждой схемы считать `diagrams/<name>.html` её source of truth, а PNG
+  и PDF — derived artifacts. Не редактировать PNG или PDF вручную.
 - Работать только с текущим модулем из
   `docs/senior_ai_agent_engineer_2026.md`.
 - Писать для Senior Python Developer с DevOps-опытом: не пересказывать основы.
@@ -20,6 +22,13 @@ description: Создавать, обновлять и проверять еди
 - Использовать обычный Markdown вместо Obsidian-only wikilinks и embeds, чтобы
   Markdown и PDF оставались эквивалентны.
 - Для изменчивых API указывать источник, проверенную версию и дату.
+- **Язык конспекта**: связующий текст (объяснения, переходы, выводы) — на русском.
+  Технические термины, названия компонентов, типы ошибок, команды и code —
+  на английском без перевода. Пример: «Agent loop вызывает model client,
+  получает ModelResponse и проверяет finish_reason» — правильно.
+  «Цикл агента вызывает клиент модели и проверяет причину завершения» —
+  неправильно. Исключение: вводные определения можно дать на русском один раз
+  при первом упоминании, дальше использовать только английский термин.
 
 ## Создание конспекта
 
@@ -45,8 +54,43 @@ notes/module_03_context_engineering/
 ```
 
 5. Заполнить все разделы. Оставлять `status: draft`, пока текст не проверен.
-6. На полный код и дополнительные материалы ссылаться относительным
+6. Проверить, упростит ли схема понимание связи как минимум трёх компонентов,
+   шагов или ветвей. Если да, создать 1–3 схемы по процедуре ниже; не добавлять
+   их как декор.
+7. На полный код и дополнительные материалы ссылаться относительным
    Markdown-link.
+
+## Схемы HTML → PNG
+
+При необходимости схемы полностью прочитать
+`references/lesson-diagrams.md`. Создать source рядом с конспектом:
+
+```bash
+uv run --frozen python \
+  skills/build-lesson-notes/scripts/create_diagram.py \
+  notes/module_01_model_vs_agent/module_01_model_vs_agent.md \
+  --name agent-runtime \
+  --title "Agent runtime separates model calls from tool execution"
+```
+
+Изменять только JSON в `script#diagram-data`, затем сгенерировать PNG:
+
+```bash
+uv run --frozen python \
+  skills/build-lesson-notes/scripts/render_diagram.py \
+  notes/module_01_model_vs_agent/diagrams/agent-runtime.html
+```
+
+Вставить PNG обычным Markdown image с содержательным alt text:
+
+```markdown
+![Agent loop вызывает Model Client и Tool Executor, сохраняя state снаружи model](diagrams/agent-runtime.png)
+```
+
+HTML использует общую локальную тему skill и не обращается к сети. Renderer
+встраивает в PNG fingerprints HTML, CSS, layout/runtime и pixel data.
+Не копировать PNG без одноимённого HTML; stale, cropped или вручную изменённая
+схема должна провалить validation.
 
 ## Проверка и PDF
 
@@ -67,8 +111,10 @@ uv run --frozen python \
 ```
 
 После каждого содержательного изменения повторять validation и PDF render.
-Открывать полученный PDF и визуально проверять заголовки, таблицы, code blocks,
-переносы страниц и отсутствие обрезанного текста.
+Перед PDF открыть каждый новый PNG и проверить направление стрелок, подписи,
+отсутствие пересечений и читаемость. Затем открыть PDF и визуально проверить
+схемы, заголовки, таблицы, code blocks, переносы страниц и отсутствие
+обрезанного текста.
 
 ## Обновление существующего конспекта
 
@@ -83,6 +129,11 @@ uv run --frozen python \
 
 - `assets/note-template.md` — обязательная структура Markdown.
 - `assets/note.css` — единый печатный стиль.
+- `assets/diagram-template.html` — редактируемый HTML template схемы.
+- `assets/diagram.css`, `assets/diagram.js` — единый visual style и layout.
+- `references/lesson-diagrams.md` — JSON contract и правила композиции.
 - `scripts/create_note.py` — безопасное создание нового source-файла.
+- `scripts/create_diagram.py` — создание HTML source рядом с конспектом.
+- `scripts/render_diagram.py` — проверка и Chromium render HTML в PNG.
 - `scripts/validate_note.py` — структурная и portability-проверка.
 - `scripts/render_note.py` — локальная генерация PDF через Chromium.

@@ -6,62 +6,114 @@ production-проекта. Полный трек рассчитан на 502 ч�
 
 ---
 
+## Формат обучения: AI-first code reading
+
+Код пишет ИИ-тьютор. Студент не начинает с пустого файла и не тратит время на
+ручной boilerplate. Его работа ближе к современной роли Senior Engineer:
+
+1. Понять теорию и задать вопросы до реализации.
+2. Согласовать границы, упрощения и ожидаемое поведение.
+3. Прочитать сгенерированный код и проследить один запрос end-to-end.
+4. Объяснить, зачем нужен каждый существенный компонент.
+5. Предсказать поведение при изменении входа или отказе зависимости.
+6. Проверить diff, тесты, trace и метрики, а не доверять ответу модели.
+7. Попросить изменить реализацию и оценить последствия изменения.
+8. Защитить архитектурное решение и удалить неоправданную сложность.
+
+Способность напечатать код по памяти не является Gate. Gate подтверждает, что
+студент понимает систему, способен направлять coding agent и отличает рабочую
+реализацию от правдоподобной, но неверной.
+
 ## Как пользоваться ИИ-тьютором
 
-1. Создай один monorepo `agent_runtime_lab`.
+1. Используй этот репозиторий как единый учебный monorepo.
 2. В начале новой сессии отправляй мастер-промпт.
-3. Выполняй промпты по порядку: каждый продолжает предыдущий commit.
-4. Проси сначала задание и acceptance criteria, затем делай свою попытку.
-5. После попытки отправляй diff тьютору на review.
-6. Не переходи к framework mapping до прохождения from-scratch Gate.
-7. В каждом модуле сохраняй ADR, eval report и git tag.
+3. Запускай тему командой `начать <номер промпта>`.
+4. Сначала тьютор создаёт конспект Markdown/PDF и даёт короткое объяснение.
+5. Задавай вопросы; когда теория понятна, напиши `к практике`.
+6. Тьютор сам реализует код и тесты, затем проводит guided code tour.
+7. Используй команды `покажи поток запроса`, `разбери следующий файл`,
+   `сломай пример`, `покажи diff` и `проверь моё объяснение`.
+8. После темы тьютор обновляет конспект и PDF.
+9. Не переходи к framework mapping до проверки from-scratch реализации.
+10. В каждом модуле сохраняй ADR, eval report и git tag.
 
 ### Ускоренное прохождение
 
-- Начинай модуль с cold defense: mental model, interfaces, failure matrix
-  и короткая реализация без помощи тьютора.
-- Если artifact проходит acceptance criteria и fault tests, пропускай
-  объяснение и сразу делай eval/framework delta.
+- После короткой теории попроси показать architecture map и сразу переходи к
+  agent-generated implementation, если тема уже знакома.
+- Если artifact проходит acceptance criteria и fault tests, сокращай code tour
+  до end-to-end trace, review diff и framework delta.
 - Не пропускай модули 2, 6, 7, 12, 13 и 14; в них можно сократить чтение,
-  но не implementation/evidence.
-- В модуле 8 реализуй micro-version каждого pattern, а глубоко
+  но не implementation, code review и evidence.
+- В модуле 8 поручай тьютору создавать micro-version каждого pattern, а глубоко
   production-test только три, выбранные benchmark.
 - Экономия времени засчитывается только по executable evidence, а не по
   самооценке «я это уже знаю».
 
 ### Мастер-промпт
 
-> Ты — Principal AI Engineer и мой строгий технический тьютор. Я Senior
-> Python Developer с DevOps/SRE-опытом: не объясняй синтаксис Python,
-> `asyncio`, Docker, Kubernetes, SQL, OAuth, CI/CD и базовые distributed
-> systems. Работай на уровне design review.
+> Ты — Principal AI Engineer, мой технический тьютор и coding agent. Я Senior
+> Python Developer с DevOps/SRE-опытом: не объясняй базовый Python, Git,
+> Docker, Kubernetes, SQL, OAuth и CI/CD, но AI-agent concepts объясняй с
+> первого принципа и на конкретных примерах.
 >
-> Сначала разбирай mental model, contracts, invariants, state transitions и
-> failure semantics. Затем ставь мне задачу на реализацию механизма с нуля
-> без agent frameworks и давай acceptance criteria. Не выдавай готовое
-> решение до моей попытки. После моего diff проведи code review, добавь
-> fault tests и только затем покажи framework mapping.
+> Каждую тему веди в двух фазах. Фаза «Теория»: создай или обнови конспект в
+> `notes/module_XX_topic/` в Markdown и PDF. Объясни проблему, ключевые
+> понятия, один простой execution flow, ограничения и типичные ошибки.
+> В чате дай компактное объяснение без огромных листингов и остановись для
+> моих вопросов. Не переходи к коду, пока я не напишу `к практике`.
 >
-> Требуй async-first typed Python, deterministic fakes, unit/contract/
-> integration/property tests, deadline, cancellation, budgets и telemetry.
-> Ищи retry hazards, duplicate side effects, races, prompt injection,
-> schema drift, cross-tenant leakage и лишнюю agentic complexity.
+> Фаза «Практика»: сначала покажи план и дерево файлов, затем самостоятельно
+> реализуй рабочий typed Python-код и deterministic tests без agent frameworks.
+> Я не пишу реализацию с пустого файла. После проверок проведи guided code
+> tour: покажи один end-to-end trace, затем разбирай не больше одного-двух
+> компонентов за ответ. Не вставляй полный код в чат — ссылайся на файлы и
+> цитируй только ключевые фрагменты.
 >
-> Для актуальных API используй только первичные источники. Указывай
-> `verified_at`, spec/SDK version и known deprecations. Если API не
-> проверен, не выдумывай его. Если agent, reflection или multi-agent не
-> превосходит простой baseline, рекомендуй удалить сложность.
+> Проверяй моё понимание через вопросы на предсказание поведения, чтение diff,
+> поиск намеренно добавленной ошибки и объяснение результатов тестов. Если я
+> ошибся, вернись к конкретному участку кода и эксперименту. После разбора
+> обнови конспект и PDF.
+>
+> В реализации используй async-first typed Python, deterministic fakes,
+> unit/contract/integration/property tests, deadline, cancellation, budgets
+> и telemetry там, где они действительно нужны. Ищи retry hazards, duplicate
+> side effects, races, prompt injection, schema drift, cross-tenant leakage
+> и лишнюю agentic complexity.
+>
+> Для изменчивых API используй первичные источники, указывай `verified_at`,
+> spec/SDK version и known deprecations. Framework mapping показывай только
+> после from-scratch реализации. Если agentic complexity не превосходит
+> простой baseline, рекомендуй её удалить.
 
 ### Ожидаемая структура ответа тьютора
 
-1. Mental model и инварианты.
-2. Architecture/data-flow/failure model.
-3. Задание мне и acceptance criteria.
-4. Review моей реализации.
-5. Fault/security tests.
-6. Dataset, baseline и метрики.
-7. Framework mapping после Gate.
-8. Production review и следующий commit.
+1. Путь к созданному конспекту Markdown/PDF.
+2. Короткая карта темы и простой execution flow.
+3. Пауза для вопросов.
+4. После `к практике`: план, дерево файлов и acceptance criteria.
+5. Реализация тьютором и результаты тестов.
+6. Guided code tour и end-to-end trace.
+7. Fault/security experiments, dataset, baseline и метрики.
+8. Проверка понимания по коду и diff.
+9. Framework mapping после Gate.
+10. Обновлённый конспект, production review и следующий шаг.
+
+### Как исполнять предметные промпты
+
+Каждый пронумерованный промпт ниже — спецификация всей темы, а не одного
+ответа. Даже если в нём сразу описана реализация, тьютор обязан разделить
+работу:
+
+1. Сначала выполнить только U.1: создать конспект, кратко объяснить тему и
+   остановиться.
+2. Ответить на вопросы по теории.
+3. Только после команды `к практике` выполнить U.2–U.8 небольшими шагами.
+4. Завершить тему через U.9–U.10 и обновить конспект.
+
+Это правило имеет приоритет над формулировками отдельных предметных промптов.
+Команда «реализуй» всегда адресована тьютору, а не студенту.
 
 ### Сквозной проект
 
@@ -113,50 +165,67 @@ failure, capabilities, usage и inference economics.
 
 ### Промпт 1.1: Model не является Agent
 
-> Разбери границы model client, agent loop, workflow и distributed worker.
-> Для каждого определи canonical state, responsibility и failure ownership.
-> Не объясняй Python basics и не используй agent frameworks. Заверши
-> интерфейсами, которые я должен реализовать, и пятью вопросами для
-> Senior-level проверки понимания.
+> Начни только с фазы «Теория». На одном примере — обработка запроса
+> пользователя с возможным вызовом tool — объясни разницу между model client,
+> agent loop, workflow и distributed worker. Покажи одну общую схему и
+> компактную сравнительную таблицу: что компонент знает, за что отвечает и
+> какие ошибки возвращает наверх. Не выдавай интерфейсы и большой листинг.
+> Создай конспект модуля 1 в Markdown/PDF и остановись для вопросов.
+>
+> После моей команды `к практике` самостоятельно создай минимальный runnable
+> demo без agent frameworks: четыре маленьких компонента, один happy-path trace
+> и несколько boundary tests. Затем покажи дерево файлов и проведи code tour
+> от входного запроса до результата, по одному-двум файлам за ответ.
 
 ### Промпт 1.2: Provider-neutral contract
 
-> Поставь мне задачу спроектировать `ModelClient`, `ModelRequest`,
-> `ModelResponse` и `ModelEvent`. Нужно нормализовать text, structured,
-> tool-call, usage, refusal и streaming events, но losslessly сохранять
-> provider-specific blocks. Дай invariants, error taxonomy и contract-test
-> matrix. Готовый код не показывай до моего diff.
+> Сначала обнови конспект: на трёх коротких provider-response examples объясни,
+> зачем нужны `ModelClient`, `ModelRequest`, `ModelResponse` и `ModelEvent`,
+> что можно нормализовать, а что необходимо сохранить losslessly. Покажи
+> error taxonomy и contract-test matrix без полного кода.
+>
+> После `к практике` сам реализуй provider-neutral contracts и deterministic
+> fake. Поддержи text, structured output, tool call, usage, refusal и streaming
+> events, сохранив provider-specific blocks. Запусти contract tests, затем
+> разбери со мной модели данных и один normal/failed event trace.
 
 ### Промпт 1.3: Streaming и cancellation
 
-> Проведи review моего adapter, затем добавь failure lab: stream оборвался,
-> client отменил request, provider вернул 429/`Retry-After`, output
-> завершился по token limit, usage отсутствует. Требуй deadline и
-> cancellation propagation. Покажи, какие retries безопасны, а какие
-> могут изменить семантику response.
+> Кратко объясни streaming lifecycle и обнови конспект одной временной
+> диаграммой. После `к практике` самостоятельно расширь adapter и создай
+> failure lab: stream оборвался, client отменил request, provider вернул
+> 429/`Retry-After`, output завершился по token limit, usage отсутствует.
+> Реализуй deadline/cancellation propagation и тесты. Затем пошагово покажи
+> два trace: успешную отмену и ambiguous partial response. Вместе определим,
+> какие retries безопасны, а какие меняют семантику.
 
 ### Промпт 1.4: Capabilities и fallback
 
-> Спроектируй capability registry без `if model_name`. Capability должна
-> описывать tools, strict schema, modalities, context, streaming и preview
-> features. Поставь задачу на router/fallback, который не может молча
-> потерять требуемую capability. Добавь property tests для несовместимой
-> fallback-модели.
+> Сначала на понятном примере объясни capability negotiation и обнови
+> конспект. После `к практике` сам реализуй registry без `if model_name`.
+> Capability должна описывать tools, strict schema, modalities, context,
+> streaming и preview features. Добавь router/fallback, который не может
+> молча потерять требуемую capability, и property tests несовместимой
+> fallback-модели. Затем покажи decision trace router и предложи мне
+> предсказать результат для трёх конфигураций.
 
 ### Промпт 1.5: Cache internals
 
 > Объясни KV cache, prefix cache и provider prompt caching через
-> prefill/decode. Затем дай мне эксперимент: stable prefix, изменение
-> одного token, несколько tenants и sensitive content. Нужно измерить hit
-> rate, TTFT и cost. Чётко докажи, почему cache не является memory.
+> prefill/decode и добавь сравнение в конспект. После `к практике` сам создай
+> и запусти эксперимент: stable prefix, изменение одного token, несколько
+> tenants и sensitive content. Измерь hit rate, TTFT и cost, покажи таблицу
+> результатов и код измерения. Затем попроси меня объяснить по trace, почему
+> cache не является memory.
 
 ### Промпт 1.6: Record/replay и evaluation
 
-> Поставь задачу реализовать record/replay adapter и deterministic fake,
-> способный воспроизвести normal response, malformed output, tool call,
-> partial stream, timeout и cancellation. Добавь минимальный JSONL runner,
-> который сохраняет events, output, latency и usage. Объясни границу между
-> deterministic contract tests и repeated live evals.
+> Сначала объясни record/replay на одном коротком trace и обнови конспект.
+> После `к практике` сам реализуй adapter и deterministic fake для normal
+> response, malformed output, tool call, partial stream, timeout и
+> cancellation. Добавь JSONL runner, сохраняющий events, output, latency
+> и usage. Запусти tests и разбери со мной один replay file. Заверши
+> сравнением deterministic contract tests и repeated live evals.
 
 ## Ожидаемый результат и Gate
 
@@ -188,7 +257,7 @@ Use и Gemini Function Calling.
 
 ### Промпт 2.1: Tool protocol с нуля
 
-> Поставь мне задачу реализовать `ToolSpec`, `ToolCall`, `ToolResult`,
+> После краткого объяснения сам реализуй `ToolSpec`, `ToolCall`, `ToolResult`,
 > `ToolError` и `ToolExecutionPolicy`. Разбери required/nullable,
 > union/discriminator, bounds, `additionalProperties`, schema versioning и
 > provider subsets. Model output должен быть только предложением; execution
@@ -196,7 +265,7 @@ Use и Gemini Function Calling.
 
 ### Промпт 2.2: Registry и executor
 
-> Проведи review, затем расширь задачу до async `ToolRegistry` и
+> Проведи review, затем расширь реализацию до async `ToolRegistry` и
 > `ToolExecutor`. Registry хранит stable name, version, schema hash, owner,
 > risk, scopes и tenant visibility. Executor поддерживает deadline,
 > cancellation, bounded concurrency, result-size limit, artifacts и
@@ -213,7 +282,7 @@ Use и Gemini Function Calling.
 ### Промпт 2.4: Retry и side effects
 
 > Составь со мной retry matrix для transport, rate limit, timeout,
-> validation, business error и unknown outcome. Поставь задачу на
+> validation, business error и unknown outcome. Сам реализуй
 > idempotency key, deduplication и reconciliation для `send_email` и
 > `charge_account`. Не принимай обещание exactly-once без доказанной
 > transaction boundary.
@@ -244,7 +313,7 @@ Use и Gemini Function Calling.
 
 > Проведи threat model: malicious arguments/results, path traversal,
 > command/SQL injection, SSRF, symlink attacks, secret exfiltration и
-> schema rug pull. Поставь задачу на `PolicyEngine`, per-action auth,
+> schema rug pull. Сам реализуй `PolicyEngine`, per-action auth,
 > secret broker, read/write capability split, egress allowlist и approval
 > tier. Фильтр по словам запрещён.
 
@@ -297,12 +366,12 @@ memory, checkpoint, RAG или cache.
 > Раздели context, canonical state, working/long-term memory, checkpoint,
 > event log, RAG и cache. Для сквозного агента перечисли context sources.
 > Каждый segment должен иметь source, trust, priority, freshness, TTL,
-> token estimate и reason for inclusion. Дай мне задание оформить это
-> typed contracts.
+> token estimate и reason for inclusion. Сам оформи это как typed contracts
+> и затем проведи со мной короткий code tour.
 
 ### Промпт 3.2: Context Compiler
 
-> Поставь задачу реализовать `ContextSource`, `ContextCandidate`,
+> После объяснения сам реализуй `ContextSource`, `ContextCandidate`,
 > `ContextManifest`, `ContextManager` и `PromptBuilder`. Compiler
 > резервирует budgets, ранжирует по relevance/priority/trust/freshness,
 > сжимает и объясняет inclusion. Prompt Builder принимает typed context, а
@@ -331,7 +400,7 @@ memory, checkpoint, RAG или cache.
 
 ### Промпт 3.6: Long-term retrieval
 
-> Поставь задачу извлекать context из state history, memory, knowledge и
+> Сам реализуй извлечение context из state history, memory, knowledge и
 > artifact stores. Hard tenant/ACL/trust filters применяются до relevance
 > ranking. Manifest обязан объяснять каждое включение. Добавь cases:
 > stale fact, contradiction, missing source и cross-user candidate.
@@ -378,7 +447,7 @@ reranking, ACL и evaluation. Генератор не должен скрыва�
 
 ### Промпт 4.1: Ingestion lifecycle
 
-> Дай задачу на versioned ingestion pipeline: immutable source ID,
+> Сам реализуй versioned ingestion pipeline: immutable source ID,
 > original artifact, structural/semantic/parent-child chunks, metadata,
 > dedup, incremental update, tombstones, embedding version, reindex и
 > rollback. Добавь tests повторной доставки, partial failure и удаления из
@@ -386,10 +455,10 @@ reranking, ACL и evaluation. Генератор не должен скрыва�
 
 ### Промпт 4.2: BM25 с нуля
 
-> Поставь задачу реализовать inverted index и BM25 без retrieval
+> Сам реализуй inverted index и BM25 без retrieval
 > framework. Dataset должен включать identifiers, error codes, names и
-> exact terms. Требуй Recall@k, MRR и nDCG. После моего diff проведи
-> complexity и correctness review.
+> exact terms. Измерь Recall@k, MRR и nDCG. Затем проведи со мной
+> complexity и correctness review созданного diff.
 
 ### Промпт 4.3: Dense и ANN
 
@@ -400,7 +469,7 @@ reranking, ACL и evaluation. Генератор не должен скрыва�
 
 ### Промпт 4.4: Hybrid и reranking
 
-> Поставь задачу реализовать Reciprocal Rank Fusion, weighted fusion,
+> Сам реализуй Reciprocal Rank Fusion, weighted fusion,
 > `Reranker` interface и MMR. Hard ACL/tenant/temporal filters применяются
 > до semantic ranking. Сравни BM25, dense, hybrid и hybrid+reranker на
 > одном dataset.
@@ -461,15 +530,15 @@ ranking, consolidation и deletion, а не как vector store с chat history.
 
 ### Промпт 5.1: Memory model
 
-> Попроси меня спроектировать multi-tenant память для агента, работающего
-> месяцами. После ответа проверь taxonomy и разложи систему на immutable
+> Сначала объясни multi-tenant память для агента, работающего месяцами, и
+> обнови конспект. После `к практике` сам спроектируй систему из immutable
 > events, derived records, write policy, retrieval/ranking, consolidation,
 > conflict resolution, eviction и deletion. Полная chat history не должна
 > автоматически становиться памятью.
 
 ### Промпт 5.2: Record schema и write path
 
-> Поставь задачу определить record с tenant/subject/type/content,
+> Сам определи record с tenant/subject/type/content,
 > source-event IDs, valid time, confidence, importance, sensitivity,
 > schema/embedding version, TTL и deletion state. Реализуй `MemoryWriter`
 > с consent, classification, dedup, entity resolution, conflict detection
@@ -484,7 +553,7 @@ ranking, consolidation и deletion, а не как vector store с chat history.
 
 ### Промпт 5.4: Consolidation
 
-> Поставь задачу реализовать episode→semantic fact,
+> Сам реализуй episode→semantic fact,
 > trajectories→procedural memory и higher-level summary. Требуй provenance,
 > confidence propagation и idempotent jobs. Измерь consolidation fidelity,
 > contradiction и summary drift.
@@ -545,8 +614,9 @@ provider adapters, DB/queue clients, Pydantic, telemetry и testing.
 
 ### Промпт 6.1: Framework RFC
 
-> Попроси меня подготовить RFC собственного async-first provider-neutral
-> agent runtime. Обязательные компоненты: Agent, Tool, ToolRegistry,
+> Сначала объясни границы собственного async-first provider-neutral agent
+> runtime. После `к практике` сам подготовь RFC. Обязательные компоненты:
+> Agent, Tool, ToolRegistry,
 > ModelClient, Planner, Executor, Memory, EventBus, ContextManager,
 > PromptBuilder, State, GraphExecutor, RetryPolicy, Reflection,
 > CheckpointStore, Evaluator, PolicyEngine и UsageLedger. Проведи review
@@ -554,14 +624,14 @@ provider adapters, DB/queue clients, Pydantic, telemetry и testing.
 
 ### Промпт 6.2: Domain model
 
-> Дай задачу определить Session, Thread, Run, Turn, Goal, Plan, Step,
+> Сам определи Session, Thread, Run, Turn, Goal, Plan, Step,
 > Action, Observation, Artifact, Event и Checkpoint. Раздели config и
 > mutable state. Все canonical entities сериализуемы и versioned.
 > Определи invariants и migrations, затем проверь models property tests.
 
 ### Промпт 6.3: Event model
 
-> Поставь задачу на typed EventBus и envelope: event/run/thread IDs,
+> Сам реализуй typed EventBus и envelope: event/run/thread IDs,
 > causation, correlation, scoped sequence, producer, schema version,
 > payload и sensitivity. Версия этого модуля in-process. Раздели domain,
 > telemetry и audit events. Проверь duplicate/out-of-order consumers и
@@ -576,7 +646,7 @@ provider adapters, DB/queue clients, Pydantic, telemetry и testing.
 
 ### Промпт 6.5: Planner с нуля
 
-> Сначала дай задачу реализовать deterministic operator/HTN planner с
+> Сначала объясни planner, затем сам реализуй deterministic operator/HTN planner с
 > preconditions, effects и dependency graph. Затем разреши LLM только
 > предлагать typed Plan. Compiler проверяет feasibility, capabilities,
 > risk, budgets и completion predicate. Добавь invalid/cyclic/stale plan
@@ -608,7 +678,7 @@ provider adapters, DB/queue clients, Pydantic, telemetry и testing.
 
 ### Промпт 6.9: Checkpoint и replay
 
-> Поставь задачу на atomic checkpoint: runtime/state version, cursor,
+> Сам реализуй atomic checkpoint: runtime/state version, cursor,
 > ready/completed sets, approvals, event offset и usage. Секреты и open
 > connections не сериализуются. Реализуй live/recorded/hybrid replay и fork
 > с новой lineage. Инъецируй crash до/после state commit.
@@ -649,14 +719,15 @@ Single-process runtime превращается в durable scheduler/workers. Т
 
 ### Промпт 7.1: Formal execution model
 
-> Попроси меня объяснить, почему graph с cycles не DAG. Затем потребуй
-> formal model: State, Node, Edge, Guard, Reducer, Scheduler, ReadyQueue,
+> Сначала объясни, почему graph с cycles не DAG, на маленьком примере.
+> Затем сам зафиксируй formal model: State, Node, Edge, Guard, Reducer,
+> Scheduler, ReadyQueue,
 > JoinPolicy, Interrupt и RunBudget. Дай counterexamples для
 > non-associative reducer, unbounded cycle и nondeterministic replay.
 
 ### Промпт 7.2: Graph Executor
 
-> Поставь задачу расширить наш GraphExecutor conditional edges, cycles,
+> Сам расширь наш GraphExecutor: conditional edges, cycles,
 > fan-out, all/any/quorum join, subgraphs и deterministic test scheduler.
 > Compiler ловит unreachable nodes, reducer mismatch и invalid joins.
 > Добавь step/deadline/token/cost termination.
@@ -684,7 +755,7 @@ Single-process runtime превращается в durable scheduler/workers. Т
 
 ### Промпт 7.6: Version migration
 
-> Поставь задачу обновить graph/state/tool schema при незавершённых runs.
+> Сам обнови graph/state/tool schema при незавершённых runs.
 > Сравни pin-old-code, migrate checkpoint и compatibility adapter. Добавь
 > expand/migrate/contract strategy, rollback и tests несовместимой версии.
 
@@ -853,7 +924,7 @@ ablation.
 
 ### Промпт 9.2: Message protocol с нуля
 
-> Поставь задачу реализовать typed `AgentId`, `MessageEnvelope`,
+> Сам реализуй typed `AgentId`, `MessageEnvelope`,
 > `CorrelationId`, `CausationId`, `Mailbox`, `AgentDirectory` и
 > `DeliveryReceipt`. Нужны request/reply/event, schema version, deadline,
 > priority, trace context и idempotency key. Добавь duplicate,
@@ -877,7 +948,7 @@ ablation.
 
 ### Промпт 9.5: Shared workspace и concurrency
 
-> Дай задачу на blackboard/workspace с immutable artifacts, optimistic
+> Сам реализуй blackboard/workspace с immutable artifacts, optimistic
 > versioning, leases и merge policy. Два worker одновременно редактируют
 > plan и один падает после external effect. Требуй conflict tests,
 > compensation decision и доказательство отсутствия silent last-write-wins.
@@ -894,8 +965,8 @@ ablation.
 
 > Построй threat model для supervisor/workers: spoofed identity,
 > privilege laundering, malicious artifact, prompt injection через
-> mailbox, cross-agent data leak и compromised worker. Я должен
-> реализовать signed/scoped delegation token, policy check на каждом hop,
+> mailbox, cross-agent data leak и compromised worker. Сам реализуй
+> signed/scoped delegation token, policy check на каждом hop,
 > provenance и revocation test.
 
 ### Промпт 9.8: Framework mapping
@@ -953,7 +1024,7 @@ agent-backend↔interactive UI.
 
 ### Промпт 10.2: MCP stdio с нуля
 
-> По актуальной MCP specification поставь задачу написать минимальные
+> По актуальной MCP specification сам напиши минимальные
 > client/server поверх stdio без SDK: initialize/negotiation,
 > `tools/list`, `tools/call`, structured error и shutdown. Используй
 > JSON-RPC framing строго по spec, golden packet fixtures и неизвестный
@@ -1153,7 +1224,7 @@ component. Ни model output, ни retrieved content, ни remote tool/agent н�
 
 ### Промпт 12.5: Safe code agent
 
-> Дай задачу построить code-change flow: untrusted repo checkout,
+> Сам построй code-change flow: untrusted repo checkout,
 > isolated worktree, dependency policy, static/secret scan, tests,
 > diff-only artifact, human approval и separate deploy identity. Агент не
 > имеет production credential. Смоделируй malicious test, poisoned package,
@@ -1354,7 +1425,7 @@ ablation с measurable benefit.
 
 ### Промпт 14.2: Walking skeleton
 
-> Поставь задачу на один thin vertical slice от API/UI до model, одного
+> Сам реализуй один thin vertical slice от API/UI до model, одного
 > read-only tool, evidence artifact и trace. Без multi-agent и reflection.
 > Требуй hermetic local environment, deterministic test, deployment
 > manifest, health/readiness и minimal dashboard. Сначала докажи end-to-end
@@ -1447,87 +1518,94 @@ ablation с measurable benefit.
 
 Эти шаблоны добавляются после каждого предметного промпта. Подставляй
 название механизма, artifact и dataset; так один модуль превращается в
-полноценный цикл «понял → реализовал → сломал → измерил → защитил».
+полноценный цикл «понял → посмотрел реализацию → проверил → сломал → измерил».
 
-### U.1: Сократи объяснение до инвариантов
+Все команды на создание или изменение кода адресованы ИИ-тьютору. Студент
+управляет реализацией, читает её и проверяет evidence, но не обязан писать код
+с пустого файла.
 
-> Не пересказывай документацию. Дай canonical state, contracts,
-> invariants, state machine, ownership и failure semantics для
-> `[MECHANISM]`. Затем задай семь вопросов, на которые нельзя ответить
-> запоминанием API.
+### U.1: Создай понятную теорию
 
-### U.2: Поставь задачу без готового решения
+> Создай или обнови конспект `[MECHANISM]` в Markdown/PDF. Начни с проблемы и
+> простого примера, затем объясни ключевые понятия, execution flow,
+> ограничения и типичные ошибки. В чате используй одну схему и не более одной
+> таблицы. Не переходи к реализации до команды `к практике`.
 
-> Дай мне implementation brief для `[MECHANISM]`: interfaces, constraints,
-> acceptance criteria и запрещённые shortcuts. Не показывай reference code
-> до моей попытки. Предположи Senior Python/DevOps background.
+### U.2: Спланируй практику
 
-### U.3: Проведи adversarial code review
+> Покажи цель runnable demo, дерево файлов, основные interfaces, ограничения,
+> acceptance criteria и план из небольших шагов. Объясни, что намеренно
+> упрощено. После плана самостоятельно переходи к реализации.
 
-> Вот мой diff и tests: `[DIFF]`. Проведи review как Principal Engineer.
-> Ищи hidden state, race, cancellation bug, retry amplification, duplicate
-> effect, schema drift, context leak, unbounded loop и weak observability.
-> Раздели blockers, major и optional.
+### U.3: Реализуй и проверь
 
-### U.4: Сломай реализацию
+> Самостоятельно реализуй `[MECHANISM]` в репозитории, добавь deterministic
+> tests и запусти проверки. Не вставляй полный листинг в чат. Сообщи изменённые
+> файлы, ключевые решения, результаты tests и оставшиеся ограничения.
+
+### U.4: Проведи guided code tour
+
+> Сначала покажи карту файлов и один end-to-end trace. Затем объясняй по одному
+> или двум компонентам за ответ: вход, состояние, важные ветки, ошибки и tests.
+> После каждого шага задавай один prediction question и жди моего ответа.
+
+### U.5: Сломай реализацию
 
 > Построй fault matrix для `[MECHANISM]`: malformed input, timeout,
 > cancellation, duplicate, reordering, partial response, crash, restart,
-> stale state, dependency degradation и version mismatch. Преврати её в
-> deterministic tests и ожидаемые recovery semantics.
+> stale state, dependency degradation и version mismatch. Сам добавь
+> deterministic tests, запусти их и покажи trace двух наиболее важных отказов.
+> Попроси меня предсказать результат до запуска одного из tests.
 
-### U.5: Атакуй trust boundaries
+### U.6: Атакуй trust boundaries
 
 > Составь abuse cases для `[MECHANISM]`: prompt injection, poisoned data,
 > confused deputy, privilege escalation, cross-tenant access, secret
-> exfiltration и audit tampering. Для каждого свяжи control, test,
-> telemetry и residual risk.
+> exfiltration и audit tampering. Сам реализуй минимальные security tests.
+> Для каждого риска свяжи control, test, telemetry и residual risk, затем
+> вместе со мной прочитай один security-relevant diff.
 
-### U.6: Построй честный benchmark
+### U.7: Построй честный benchmark
 
 > Создай frozen dataset и минимум два более простых baseline для
 > `[MECHANISM]`. Задай outcome, trajectory, safety, latency, tokens и cost
-> metrics. Требуй repeated trials, uncertainty и threshold практической
-> значимости.
+> metrics. Сам запусти repeated trials, покажи uncertainty и threshold
+> практической значимости. Попроси меня принять решение keep/change/remove.
 
-### U.7: Сопоставь с framework
+### U.8: Сопоставь с framework
 
 > Только после from-scratch Gate найди соответствия `[MECHANISM]` в
 > `[FRAMEWORK]`: source modules, public abstractions, canonical state,
-> guarantees, extension points и application-owned risks. Подтверди
+> guarantees, extension points и application-owned risks. Сам реализуй
+> небольшой framework-вариант на том же behavioral suite и подтверди
 > актуальную версию официальными источниками.
 
-### U.8: Напиши ADR
+### U.9: Проверь понимание и обнови конспект
 
-> Подготовь ADR для build/buy/remove `[MECHANISM]`. Сравни simplest
-> alternative, operational cost, correctness, security, portability,
-> lock-in и migration. Решение должно содержать falsifiable assumptions и
-> дату пересмотра.
+> Задавай по одному вопросу на чтение кода, prediction, failure semantics и
+> архитектурный trade-off. Если я ошибаюсь, покажи конкретный trace или test,
+> а не давай абстрактную лекцию. После разбора обнови конспект и PDF: добавь
+> реализованные примеры, мои выводы и ссылки на код.
 
-### U.9: Проведи устную защиту
+### U.10: Проведи итоговый review
 
-> Проведи 20-минутное Senior interview по `[MECHANISM]`. Задавай по одному
-> scenario question, углубляйся по ответу и не подсказывай. В конце дай
-> rubric: mental model, implementation, failures, security, evaluation и
-> production judgment.
-
-### U.10: Найди, что удалить
-
-> Рассмотри систему как skeptical architect. Какие agent loops, memory,
-> reflection, planner, protocol или multi-agent components можно заменить
-> deterministic code или одним model call? Предложи removal experiment и
-> измеримый критерий решения.
+> Проведи review как skeptical architect. Проверь, могу ли я проследить request,
+> объяснить ключевой код, найти ошибку в небольшом diff, прочитать результаты
+> tests и выбрать между build/buy/remove. Определи, какие agent components
+> можно заменить deterministic code или одним model call. Заверши rubric и
+> конкретными пробелами для повторения.
 
 ---
 
 # Рекомендуемый ритм одного модуля
 
-1. **День 1:** mental model, source reading и design sketch.
-2. **Дни 2–3:** самостоятельная реализация с нуля.
-3. **День 4:** contract/property/fault/security tests.
-4. **День 5:** frozen eval и простые baselines.
-5. **День 6:** framework mapping и source teardown.
-6. **День 7:** production review, ADR, tag и устная защита.
+1. **День 1:** теория, конспект и вопросы.
+2. **День 2:** план и реализация тьютором с нуля.
+3. **День 3:** guided code tour и end-to-end traces.
+4. **День 4:** contract/property/fault/security experiments.
+5. **День 5:** frozen eval и простые baselines.
+6. **День 6:** framework mapping, общий behavioral suite и source teardown.
+7. **День 7:** review diff, ADR, обновление конспекта и устная защита.
 
 Если Gate не пройден, следующий модуль не начинается. Если механизм не
 победил простой baseline и не создаёт необходимую isolation/security
@@ -1540,7 +1618,8 @@ boundary, он удаляется.
 Трек завершён не тогда, когда просмотрены все темы, а когда ты способен:
 
 1. Выбрать deterministic workflow вместо агента и защитить это решение.
-2. Реализовать agent runtime и durable executor без framework.
+2. Направить ИИ-агента на реализацию agent runtime и durable executor без
+   framework, проверить код и объяснить каждый critical path.
 3. Объяснить и проверить context, retrieval и memory lifecycle.
 4. Ограничить tools/agents identity, policy, sandbox и approval.
 5. Доказать качество через trajectory eval, fault/security suites и

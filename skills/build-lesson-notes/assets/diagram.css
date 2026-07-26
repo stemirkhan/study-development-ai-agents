@@ -1,0 +1,261 @@
+@page {
+  margin: 0;
+}
+
+:root {
+  color-scheme: light;
+  --diagram-width: 960px;
+  --diagram-height: 700px;
+  --paper: #fffdf8;
+  --paper-strong: #ffffff;
+  --ink: #20252b;
+  --ink-soft: #4f5963;
+  --actor: #b9dcff;
+  --accent: #ffe59a;
+  --info: #e8e1ff;
+  --success: #d9f0d2;
+  --danger: #ffd8d2;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: var(--diagram-width);
+  min-width: var(--diagram-width);
+  max-width: var(--diagram-width);
+  height: var(--diagram-height);
+  min-height: var(--diagram-height);
+  max-height: var(--diagram-height);
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  color: var(--ink);
+  background: var(--paper);
+  font-family:
+    "DejaVu Sans Mono",
+    "Liberation Mono",
+    "Courier New",
+    monospace;
+  font-size: 16px;
+  line-height: 1.25;
+  text-rendering: geometricPrecision;
+}
+
+#lesson-diagram {
+  position: relative;
+  isolation: isolate;
+  width: var(--diagram-width);
+  height: var(--diagram-height);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 14% 9%, rgb(67 91 111 / 3%), transparent 24%),
+    radial-gradient(circle at 88% 84%, rgb(113 91 55 / 3%), transparent 28%),
+    var(--paper);
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.diagram-node-layer,
+.diagram-connectors {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.diagram-node-layer {
+  z-index: 2;
+  pointer-events: none;
+}
+
+.diagram-connectors {
+  z-index: 1;
+  display: block;
+  overflow: visible;
+}
+
+.diagram-node {
+  --node-width: 184px;
+  --node-fill: var(--paper-strong);
+  --node-tilt: 0deg;
+  --outline-tilt: 0.35deg;
+
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--node-width);
+  min-height: 74px;
+  padding: 13px 15px;
+  border: 2.2px solid var(--ink);
+  border-radius: 17px 15px 18px 16px;
+  outline: 1px solid rgb(32 37 43 / 12%);
+  outline-offset: 1px;
+  color: var(--ink);
+  background: var(--node-fill);
+  box-shadow: 1.5px 2px 0 rgb(32 37 43 / 13%);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+  transform: translate(-50%, -50%) rotate(var(--node-tilt));
+}
+
+.diagram-node::after {
+  position: absolute;
+  inset: 2px -2px -2px 1px;
+  border: 1px solid rgb(32 37 43 / 28%);
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+  transform: rotate(var(--outline-tilt));
+}
+
+.diagram-node > span {
+  position: relative;
+  z-index: 1;
+  display: block;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.diagram-node.kind-actor {
+  --node-fill: var(--actor);
+
+  width: 108px;
+  min-width: 108px;
+  height: 108px;
+  min-height: 108px;
+  padding: 12px;
+  border-radius: 50% 48% 51% 49%;
+}
+
+.diagram-node.kind-accent {
+  --node-fill: var(--accent);
+}
+
+.diagram-node.kind-info {
+  --node-fill: var(--info);
+}
+
+.diagram-node.kind-success {
+  --node-fill: var(--success);
+}
+
+.diagram-node.kind-danger {
+  --node-fill: var(--danger);
+}
+
+.diagram-node.tilt-left {
+  --node-tilt: -0.28deg;
+  --outline-tilt: 0.48deg;
+}
+
+.diagram-node.tilt-right {
+  --node-tilt: 0.25deg;
+  --outline-tilt: -0.44deg;
+}
+
+.diagram-node.tilt-soft {
+  --node-tilt: -0.08deg;
+  --outline-tilt: 0.28deg;
+}
+
+.diagram-edge,
+.diagram-edge-echo {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.diagram-edge {
+  stroke: var(--ink);
+  stroke-width: 2.2;
+}
+
+.diagram-edge-echo {
+  stroke: var(--ink-soft);
+  stroke-width: 1.15;
+  opacity: 0.3;
+  transform: translate(0.65px, -0.45px);
+}
+
+.diagram-edge.is-dashed,
+.diagram-edge-echo.is-dashed {
+  stroke-dasharray: 8 7;
+}
+
+.diagram-arrowhead {
+  fill: var(--ink);
+}
+
+.diagram-edge-label {
+  fill: var(--ink);
+  stroke: var(--paper);
+  stroke-width: 7px;
+  stroke-linejoin: round;
+  paint-order: stroke fill;
+  font-family:
+    "DejaVu Sans Mono",
+    "Liberation Mono",
+    "Courier New",
+    monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.diagram-error {
+  position: absolute;
+  inset: 48px;
+  display: grid;
+  place-content: center;
+  padding: 28px;
+  border: 2px solid #9f2f24;
+  border-radius: 16px;
+  color: #721e17;
+  background: #fff1ef;
+  text-align: center;
+}
+
+.diagram-error strong,
+.diagram-error span {
+  display: block;
+}
+
+.diagram-error span {
+  max-width: 720px;
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+@media print {
+  html,
+  body,
+  #lesson-diagram {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
