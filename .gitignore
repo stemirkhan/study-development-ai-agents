@@ -8,3 +8,10 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Obsidian vault and plugin-local metadata
+.obsidian/
+.trash/
+.makemd/
+.space/
+/Без названия.base

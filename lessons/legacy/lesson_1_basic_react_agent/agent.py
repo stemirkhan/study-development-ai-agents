@@ -1,4 +1,4 @@
-"""Оркестратор цикла Reasoning -> Action -> Observation."""
+"""Архивный оркестратор цикла Reasoning -> Action -> Observation."""
 
 from __future__ import annotations
 

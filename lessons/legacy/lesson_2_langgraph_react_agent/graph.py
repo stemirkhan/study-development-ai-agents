@@ -1,4 +1,4 @@
-"""ReAct-цикл, выраженный как граф состояний LangGraph."""
+"""Архивный ReAct-цикл, выраженный как граф состояний LangGraph."""
 
 from __future__ import annotations
 
@@ -8,14 +8,14 @@ from typing import Any, Literal, cast
 from langgraph.graph import END, START, StateGraph
 from openai import OpenAI
 
-from lessons.lesson_1_basic_react_agent.prompts import SYSTEM_PROMPT
-from lessons.lesson_1_basic_react_agent.protocol import (
+from lessons.legacy.lesson_1_basic_react_agent.prompts import SYSTEM_PROMPT
+from lessons.legacy.lesson_1_basic_react_agent.protocol import (
     AgentProtocolError,
     FinalAnswer,
     ToolCall,
     parse_llm_response,
 )
-from lessons.lesson_1_basic_react_agent.tools import execute_tool
+from lessons.legacy.lesson_1_basic_react_agent.tools import execute_tool
 
 from .state import AgentState, AgentStateUpdate, message
 

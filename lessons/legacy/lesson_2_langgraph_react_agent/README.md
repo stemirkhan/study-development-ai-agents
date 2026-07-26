@@ -1,5 +1,9 @@
 # ReAct-агент на LangGraph
 
+> **Статус:** архивный урок из предыдущего плана. Проходите его после
+> модулей 6–7 нового трека как вводный framework mapping, но не как замену
+> реализации собственного durable Graph Executor.
+
 ## Цель урока
 
 После изучения материала вы будете понимать:
@@ -952,14 +956,14 @@ return final_answer
 LangGraph-версия не дублирует уже написанную предметную логику:
 
 ```python
-from lessons.lesson_1_basic_react_agent.prompts import SYSTEM_PROMPT
-from lessons.lesson_1_basic_react_agent.protocol import (
+from lessons.legacy.lesson_1_basic_react_agent.prompts import SYSTEM_PROMPT
+from lessons.legacy.lesson_1_basic_react_agent.protocol import (
     AgentProtocolError,
     FinalAnswer,
     ToolCall,
     parse_llm_response,
 )
-from lessons.lesson_1_basic_react_agent.tools import execute_tool
+from lessons.legacy.lesson_1_basic_react_agent.tools import execute_tool
 ```
 
 Разделение ответственности:
@@ -1020,7 +1024,7 @@ lesson_2_langgraph_react_agent/
 В Linux это можно сделать командой:
 
 ```bash
-xdg-open lessons/lesson_2_langgraph_react_agent/langgraph_flow.html
+xdg-open lessons/legacy/lesson_2_langgraph_react_agent/langgraph_flow.html
 ```
 
 ## Запуск
@@ -1034,14 +1038,14 @@ export OPENAI_API_KEY="ваш-ключ"
 Запустите LangGraph-агента:
 
 ```bash
-uv run python -m lessons.lesson_2_langgraph_react_agent \
+uv run python -m lessons.legacy.lesson_2_langgraph_react_agent \
   "Что такое ReAct и сколько будет (17 + 5) * 3?"
 ```
 
 Изменение максимального количества вызовов LLM:
 
 ```bash
-uv run python -m lessons.lesson_2_langgraph_react_agent \
+uv run python -m lessons.legacy.lesson_2_langgraph_react_agent \
   "Сколько будет 12 * 8?" \
   --max-steps 4
 ```
@@ -1049,7 +1053,7 @@ uv run python -m lessons.lesson_2_langgraph_react_agent \
 Изменение модели:
 
 ```bash
-uv run python -m lessons.lesson_2_langgraph_react_agent \
+uv run python -m lessons.legacy.lesson_2_langgraph_react_agent \
   "Что такое LangGraph?" \
   --model gpt-5-mini
 ```
@@ -1057,7 +1061,7 @@ uv run python -m lessons.lesson_2_langgraph_react_agent \
 Если вопрос не передан аргументом, CLI запросит его интерактивно:
 
 ```bash
-uv run python -m lessons.lesson_2_langgraph_react_agent
+uv run python -m lessons.legacy.lesson_2_langgraph_react_agent
 ```
 
 ## Как тестировать без обращения к API
@@ -1078,7 +1082,7 @@ run_langgraph_agent(
 ```python
 from types import SimpleNamespace
 
-from lessons.lesson_2_langgraph_react_agent.graph import run_langgraph_agent
+from lessons.legacy.lesson_2_langgraph_react_agent.graph import run_langgraph_agent
 
 
 class FakeResponses:

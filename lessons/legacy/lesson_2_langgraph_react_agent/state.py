@@ -1,11 +1,11 @@
-"""Строго типизированное состояние LangGraph-агента."""
+"""Строго типизированное состояние архивного LangGraph-агента."""
 
 from __future__ import annotations
 
 import operator
 from typing import Annotated, Literal, TypedDict
 
-from lessons.lesson_1_basic_react_agent.protocol import AgentAction
+from lessons.legacy.lesson_1_basic_react_agent.protocol import AgentAction
 
 
 class ChatMessage(TypedDict):

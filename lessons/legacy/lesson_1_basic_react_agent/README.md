@@ -1,5 +1,9 @@
 # ReAct (Reasoning + Acting)
 
+> **Статус:** архивный урок из предыдущего плана. Используйте его как
+> исторический baseline перед модулем 8 нового трека, но не как замену
+> provider-native Tool Calling из модуля 2.
+
 ## Цель урока
 
 После изучения материала вы будете понимать:
@@ -471,14 +475,14 @@ export OPENAI_API_KEY="ваш-ключ"
 Запустите агента:
 
 ```bash
-uv run python -m lessons.lesson_1_basic_react_agent \
+uv run python -m lessons.legacy.lesson_1_basic_react_agent \
   "Что такое ReAct и сколько будет (17 + 5) * 3?"
 ```
 
 Изменение максимального количества шагов:
 
 ```bash
-uv run python -m lessons.lesson_1_basic_react_agent \
+uv run python -m lessons.legacy.lesson_1_basic_react_agent \
   "Сколько будет 12 * 8?" \
   --max-steps 4
 ```
@@ -486,7 +490,7 @@ uv run python -m lessons.lesson_1_basic_react_agent \
 Изменение модели:
 
 ```bash
-uv run python -m lessons.lesson_1_basic_react_agent \
+uv run python -m lessons.legacy.lesson_1_basic_react_agent \
   "Что такое ReAct?" \
   --model gpt-5-mini
 ```

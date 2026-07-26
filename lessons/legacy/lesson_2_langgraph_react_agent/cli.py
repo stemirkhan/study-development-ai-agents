@@ -1,4 +1,4 @@
-"""Командная строка для запуска учебного ReAct-агента."""
+"""Командная строка архивной LangGraph-версии ReAct-агента."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import os
 
 from openai import OpenAI
 
-from .agent import run_react_agent
+from .graph import run_langgraph_agent
 
 
 def positive_int(value: str) -> int:
@@ -18,7 +18,7 @@ def positive_int(value: str) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Минимальный ReAct-агент")
+    parser = argparse.ArgumentParser(description="ReAct-агент на LangGraph")
     parser.add_argument("question", nargs="?", help="вопрос агенту")
     parser.add_argument(
         "--model",
@@ -29,7 +29,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--max-steps",
         type=positive_int,
         default=6,
-        help="максимальное количество шагов ReAct-цикла",
+        help="максимальное количество вызовов LLM",
     )
     return parser
 
@@ -37,7 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = build_parser().parse_args()
     question = args.question or input("Ваш вопрос: ")
-    answer = run_react_agent(
+    answer = run_langgraph_agent(
         question,
         client=OpenAI(),
         model=args.model,

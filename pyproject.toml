@@ -1,7 +1,7 @@
 [project]
 name = "study-development-ai-agents"
 version = "0.1.0"
-description = "Add your description here"
+description = "Mechanism-first AI agent engineering curriculum and implementation labs"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
