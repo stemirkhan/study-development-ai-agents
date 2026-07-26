@@ -1,0 +1,4 @@
+interface:
+  display_name: "Конспекты уроков"
+  short_description: "Единые MD- и PDF-конспекты для уроков"
+  default_prompt: "Используй $build-lesson-notes, чтобы создать конспект текущего урока в Markdown и PDF."

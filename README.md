@@ -22,7 +22,10 @@ security, evals и production capstone.
 ├── docs/
 │   ├── senior_ai_agent_engineer_2026.md
 │   └── senior_ai_agent_engineer_2026.pdf
+├── notes/
+│   └── README.md
 ├── skills/
+│   ├── build-lesson-notes/
 │   ├── build-lesson-presentation/
 │   └── tavily-search/
 ├── pyproject.toml
@@ -31,6 +34,7 @@ security, evals и production capstone.
 
 Новые материалы будут появляться в `lessons/module_XX_topic` по мере
 прохождения трека. Пустые директории для всех 14 модулей заранее не создаются.
+Конспекты уроков хранятся в `notes/module_XX_topic` в Markdown и PDF.
 
 ## Быстрый старт
 

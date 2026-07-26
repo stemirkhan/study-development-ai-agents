@@ -23,6 +23,9 @@
 
 ## Проектные skills
 
+- При создании или обновлении конспекта урока полностью прочитать
+  `skills/build-lesson-notes/SKILL.md`. Хранить source Markdown и производный
+  PDF в `notes/module_XX_topic/`; после изменения Markdown пересобирать PDF.
 - При создании или обновлении интерактивной HTML-презентации для урока полностью
   прочитать `skills/build-lesson-presentation/SKILL.md` и использовать его общий
   шаблон.

@@ -1,0 +1,163 @@
+@page {
+  size: A4;
+  margin: 18mm 17mm 20mm;
+}
+
+:root {
+  color-scheme: light;
+  --ink: #1d2733;
+  --muted: #5d6875;
+  --line: #d9e0e7;
+  --accent: #275d7a;
+  --accent-soft: #edf4f7;
+  --code-bg: #f3f5f7;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 10.5pt;
+}
+
+body {
+  max-width: 176mm;
+  margin: 0 auto;
+  color: var(--ink);
+  background: #fff;
+  font-family: "Noto Sans", "DejaVu Sans", "Liberation Sans", sans-serif;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  color: #173f57;
+  line-height: 1.2;
+  page-break-after: avoid;
+}
+
+h1 {
+  margin: 0 0 1rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 2px solid var(--accent);
+  font-size: 24pt;
+}
+
+h2 {
+  margin: 1.8rem 0 0.7rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--line);
+  font-size: 16pt;
+}
+
+h3 {
+  margin: 1.35rem 0 0.55rem;
+  font-size: 12.5pt;
+}
+
+p,
+ul,
+ol,
+blockquote,
+pre,
+table {
+  margin-top: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+a {
+  color: #1d6389;
+  text-decoration: none;
+}
+
+blockquote {
+  margin-left: 0;
+  padding: 0.65rem 0.9rem;
+  border-left: 4px solid var(--accent);
+  background: var(--accent-soft);
+  color: #294454;
+}
+
+code,
+pre {
+  font-family: "Noto Sans Mono", "DejaVu Sans Mono", monospace;
+}
+
+code {
+  padding: 0.08rem 0.25rem;
+  border-radius: 3px;
+  background: var(--code-bg);
+  font-size: 0.9em;
+}
+
+pre {
+  padding: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--code-bg);
+  white-space: pre-wrap;
+  page-break-inside: avoid;
+}
+
+pre code {
+  padding: 0;
+  background: transparent;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.5pt;
+}
+
+th,
+td {
+  padding: 0.42rem 0.5rem;
+  border: 1px solid var(--line);
+  vertical-align: top;
+}
+
+th {
+  background: var(--accent-soft);
+  text-align: left;
+}
+
+img,
+svg {
+  max-width: 100%;
+  height: auto;
+  page-break-inside: avoid;
+}
+
+hr {
+  margin: 1.4rem 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+@media print {
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  a {
+    color: inherit;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  blockquote,
+  pre,
+  table,
+  img,
+  svg {
+    break-inside: avoid;
+  }
+}
