@@ -34,12 +34,8 @@
       background: var(--page);
     }
 
-    button,
-    select {
-      font: inherit;
-    }
-
     button {
+      font: inherit;
       color: inherit;
     }
 
@@ -195,6 +191,7 @@
       min-width: 780px;
       height: 414px;
       margin: 0 auto;
+      transition: transform 220ms ease;
       background:
         linear-gradient(to right, transparent 19px, #eceef1 20px, transparent 21px),
         linear-gradient(to bottom, transparent 19px, #eceef1 20px, transparent 21px);
@@ -377,7 +374,11 @@
     }
 
     .button {
+      display: inline-flex;
       height: 36px;
+      gap: 7px;
+      align-items: center;
+      justify-content: center;
       padding: 0 13px;
       cursor: pointer;
       border: 1px solid var(--border-dark);
@@ -389,35 +390,110 @@
       background: var(--surface-muted);
     }
 
-    .button-primary {
-      min-width: 112px;
-      color: white;
-      border-color: var(--blue);
-      background: var(--blue);
+    .presentation-button {
+      min-width: 108px;
     }
 
-    .button-primary:hover {
-      background: #1d4ed8;
+    .button-icon {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 auto;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
 
-    .speed-label {
-      color: var(--muted);
-      font-size: 12px;
+    .exit-presentation-icon {
+      display: none;
     }
 
-    select {
-      height: 34px;
-      padding: 0 8px;
-      color: var(--text);
-      border: 1px solid var(--border-dark);
-      border-radius: 6px;
+    .presentation-button[aria-pressed="true"] .enter-presentation-icon {
+      display: none;
+    }
+
+    .presentation-button[aria-pressed="true"] .exit-presentation-icon {
+      display: block;
+    }
+
+    button:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 2px;
+    }
+
+    body.presentation-active {
+      overflow: hidden;
+    }
+
+    .lesson:fullscreen,
+    .lesson.is-presenting {
+      width: 100vw;
+      height: 100vh;
+      grid-template-columns: minmax(0, 1fr);
+      border: 0;
+      border-radius: 0;
       background: var(--surface);
     }
 
-    button:focus-visible,
-    select:focus-visible {
-      outline: 2px solid var(--blue);
-      outline-offset: 2px;
+    .lesson:fullscreen .steps,
+    .lesson.is-presenting .steps {
+      display: none;
+    }
+
+    .lesson.is-presenting:not(:fullscreen) {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+    }
+
+    .lesson:fullscreen .content,
+    .lesson.is-presenting .content {
+      display: flex;
+      min-height: 0;
+      flex-direction: column;
+    }
+
+    .lesson:fullscreen .step-content,
+    .lesson.is-presenting .step-content {
+      display: grid;
+      min-height: 0;
+      flex: 1;
+      grid-template-rows: auto auto auto minmax(0, 1fr);
+      padding: clamp(22px, 3vh, 36px) clamp(24px, 4vw, 72px)
+        clamp(16px, 2vh, 26px);
+      overflow: hidden;
+    }
+
+    .lesson:fullscreen .step-content h1,
+    .lesson.is-presenting .step-content h1 {
+      font-size: clamp(28px, 3vw, 42px);
+    }
+
+    .lesson:fullscreen .step-content > p,
+    .lesson.is-presenting .step-content > p {
+      max-width: 1100px;
+      margin: 10px 0 18px;
+    }
+
+    .lesson:fullscreen .scene-viewport,
+    .lesson.is-presenting .scene-viewport {
+      display: grid;
+      width: 100%;
+      min-height: 0;
+      height: 100%;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    .lesson:fullscreen .scene,
+    .lesson.is-presenting .scene {
+      transform: scale(var(--presentation-scale, 1));
+    }
+
+    .lesson:fullscreen .controls,
+    .lesson.is-presenting .controls {
+      display: none;
     }
 
     @keyframes edge-flow {
@@ -515,8 +591,8 @@
 </head>
 <body>
   <main class="page">
-    <section class="card lesson" aria-label="ReAct: пошаговая визуализация">
-      <nav class="steps" id="stepNavigation" aria-label="Шаги"></nav>
+    <section class="card lesson" id="lesson" aria-label="ReAct step-by-step visualization">
+      <nav class="steps" id="stepNavigation" aria-label="Steps"></nav>
 
       <div class="content">
         <div class="progress" aria-hidden="true">
@@ -525,7 +601,7 @@
 
         <article class="step-content" id="stepContent" aria-live="polite">
           <div class="step-meta">
-            <span id="stepNumber">Шаг 1 из 8</span>
+            <span id="stepNumber">Step 1 of 8</span>
             <span class="owner" id="stepOwner">Пользователь</span>
           </div>
           <h1 id="stepTitle"></h1>
@@ -632,18 +708,56 @@
 
         <footer class="controls">
           <div class="control-group">
-            <button class="button" id="previousButton" type="button">Назад</button>
-            <button class="button button-primary" id="playButton" type="button">Пауза</button>
-            <button class="button" id="nextButton" type="button">Далее</button>
+            <button
+              class="button"
+              id="previousButton"
+              type="button"
+              aria-label="Previous slide"
+            >
+              <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m15 18-6-6 6-6"></path>
+              </svg>
+              <span>Previous</span>
+            </button>
+            <button
+              class="button"
+              id="nextButton"
+              type="button"
+              aria-label="Next slide"
+            >
+              <span>Next</span>
+              <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m9 18 6-6-6-6"></path>
+              </svg>
+            </button>
           </div>
 
           <div class="control-group">
-            <label class="speed-label" for="speedSelect">Скорость</label>
-            <select id="speedSelect">
-              <option value="3800">Медленно</option>
-              <option value="2800" selected>Обычно</option>
-              <option value="1800">Быстро</option>
-            </select>
+            <button
+              class="button presentation-button"
+              id="presentationButton"
+              type="button"
+              aria-pressed="false"
+              title="Enter presentation mode (F)"
+            >
+              <svg
+                class="button-icon enter-presentation-icon"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3"></path>
+                <path d="M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"></path>
+              </svg>
+              <svg
+                class="button-icon exit-presentation-icon"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path d="M8 3v3a2 2 0 0 1-2 2H3M16 3v3a2 2 0 0 0 2 2h3"></path>
+                <path d="M8 21v-3a2 2 0 0 0-2-2H3M16 21v-3a2 2 0 0 1 2-2h3"></path>
+              </svg>
+              <span id="presentationButtonLabel">Presentation</span>
+            </button>
           </div>
         </footer>
       </div>
@@ -653,7 +767,7 @@
   <script>
     const steps = [
       {
-        tab: "Вопрос",
+        tab: "Question",
         owner: "Пользователь",
         title: "Пользователь формулирует задачу",
         description:
@@ -686,7 +800,7 @@
         context: ["Action", "calculator + expression", "LLM"]
       },
       {
-        tab: "Парсинг",
+        tab: "Parsing",
         owner: "Python",
         title: "Python проверяет предложение модели",
         description:
@@ -697,7 +811,7 @@
         context: ["Validation", "ToolCall создан", "Python"]
       },
       {
-        tab: "Tool call",
+        tab: "Tool Call",
         owner: "Инструмент",
         title: "Python запускает calculator()",
         description:
@@ -719,7 +833,7 @@
         context: ["Observation", "result = 66", "Python"]
       },
       {
-        tab: "Новый цикл",
+        tab: "Next Cycle",
         owner: "LLM",
         title: "LLM получает обновлённый контекст",
         description:
@@ -743,6 +857,7 @@
     ];
 
     const navigation = document.getElementById("stepNavigation");
+    const lesson = document.getElementById("lesson");
     const progressFill = document.getElementById("progressFill");
     const stepContent = document.getElementById("stepContent");
     const stepNumber = document.getElementById("stepNumber");
@@ -751,8 +866,10 @@
     const stepDescription = document.getElementById("stepDescription");
     const previousButton = document.getElementById("previousButton");
     const nextButton = document.getElementById("nextButton");
-    const playButton = document.getElementById("playButton");
-    const speedSelect = document.getElementById("speedSelect");
+    const presentationButton = document.getElementById("presentationButton");
+    const presentationButtonLabel = document.getElementById(
+      "presentationButtonLabel"
+    );
     const sceneViewport = document.getElementById("sceneViewport");
     const contextPhase = document.getElementById("contextPhase");
     const contextEvent = document.getElementById("contextEvent");
@@ -760,9 +877,7 @@
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     let currentStep = 0;
-    let delay = Number(speedSelect.value);
-    let isPlaying = !reducedMotion;
-    let timer = null;
+    let isPresentationMode = false;
 
     const stepButtons = steps.map((step, index) => {
       const button = document.createElement("button");
@@ -778,7 +893,6 @@
 
       button.append(number, title);
       button.addEventListener("click", () => {
-        pause();
         currentStep = index;
         render();
       });
@@ -832,7 +946,7 @@
         step.context;
 
       progressFill.style.width = `${((currentStep + 1) / steps.length) * 100}%`;
-      stepNumber.textContent = `Шаг ${currentStep + 1} из ${steps.length}`;
+      stepNumber.textContent = `Step ${currentStep + 1} of ${steps.length}`;
       stepOwner.textContent = step.owner;
       stepTitle.textContent = step.title;
       stepDescription.textContent = step.description;
@@ -841,29 +955,13 @@
       void stepContent.offsetWidth;
       stepContent.classList.add("is-changing");
 
-      playButton.textContent = isPlaying ? "Пауза" : "Продолжить";
-      window.requestAnimationFrame(centerActiveNode);
-      scheduleNext();
-    }
-
-    function scheduleNext() {
-      window.clearTimeout(timer);
-      if (!isPlaying) return;
-
-      timer = window.setTimeout(() => {
-        currentStep = (currentStep + 1) % steps.length;
-        render();
-      }, delay);
-    }
-
-    function pause() {
-      isPlaying = false;
-      window.clearTimeout(timer);
-      playButton.textContent = "Продолжить";
+      window.requestAnimationFrame(() => {
+        fitSceneToPresentation();
+        centerActiveNode();
+      });
     }
 
     function move(direction) {
-      pause();
       currentStep = (currentStep + direction + steps.length) % steps.length;
       render();
     }
@@ -871,31 +969,116 @@
     previousButton.addEventListener("click", () => move(-1));
     nextButton.addEventListener("click", () => move(1));
 
-    playButton.addEventListener("click", () => {
-      isPlaying = !isPlaying;
-      render();
-    });
+    function updatePresentationButton() {
+      presentationButtonLabel.textContent = isPresentationMode
+        ? "Exit"
+        : "Presentation";
+      presentationButton.setAttribute(
+        "aria-pressed",
+        String(isPresentationMode)
+      );
+      presentationButton.title = isPresentationMode
+        ? "Exit presentation mode (Esc)"
+        : "Enter presentation mode (F)";
+      window.requestAnimationFrame(() => {
+        fitSceneToPresentation();
+        centerActiveNode();
+      });
+    }
 
-    speedSelect.addEventListener("change", () => {
-      delay = Number(speedSelect.value);
-      scheduleNext();
+    function fitSceneToPresentation() {
+      const scene = sceneViewport.querySelector(".scene");
+
+      if (!isPresentationMode) {
+        scene.style.removeProperty("--presentation-scale");
+        return;
+      }
+
+      const availableWidth = Math.max(1, sceneViewport.clientWidth - 32);
+      const availableHeight = Math.max(1, sceneViewport.clientHeight - 32);
+      const scale = Math.min(
+        availableWidth / 780,
+        availableHeight / 414,
+        1.8
+      );
+
+      scene.style.setProperty(
+        "--presentation-scale",
+        String(Math.max(0.55, scale))
+      );
+    }
+
+    function setPresentationMode(active) {
+      isPresentationMode = active;
+      lesson.classList.toggle("is-presenting", active);
+      document.body.classList.toggle("presentation-active", active);
+      updatePresentationButton();
+    }
+
+    async function togglePresentation() {
+      if (isPresentationMode) {
+        setPresentationMode(false);
+        if (document.fullscreenElement) {
+          await document.exitFullscreen();
+        }
+        return;
+      }
+
+      setPresentationMode(true);
+
+      if (!document.fullscreenEnabled || !lesson.requestFullscreen) return;
+
+      try {
+        await lesson.requestFullscreen();
+      } catch (error) {
+        console.info("Using viewport presentation mode:", error);
+      }
+    }
+
+    presentationButton.addEventListener("click", togglePresentation);
+    document.addEventListener("fullscreenchange", () => {
+      if (document.fullscreenElement === lesson) {
+        setPresentationMode(true);
+      } else {
+        updatePresentationButton();
+      }
     });
 
     window.addEventListener("resize", () => {
-      window.requestAnimationFrame(centerActiveNode);
+      window.requestAnimationFrame(() => {
+        fitSceneToPresentation();
+        centerActiveNode();
+      });
     });
 
     document.addEventListener("keydown", (event) => {
-      if (event.target.matches("button, select")) return;
+      if (event.target instanceof Element && event.target.matches("button")) {
+        return;
+      }
 
       if (event.key === "ArrowLeft") {
         move(-1);
       } else if (event.key === "ArrowRight") {
         move(1);
-      } else if (event.code === "Space") {
+      } else if (event.key.toLowerCase() === "f") {
         event.preventDefault();
-        isPlaying = !isPlaying;
-        render();
+        togglePresentation();
+      } else if (
+        event.key === "Escape" &&
+        isPresentationMode &&
+        !document.fullscreenElement
+      ) {
+        setPresentationMode(false);
+      }
+    });
+
+    document.addEventListener("keyup", (event) => {
+      if (
+        event.key === "Escape" &&
+        isPresentationMode &&
+        !document.fullscreenElement
+      ) {
+        setPresentationMode(false);
       }
     });
 
