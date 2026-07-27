@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="lesson-diagram-template" content="study-sketch-v1">
+    <title>Один запрос пересекает четыре границы ответственности</title>
+    <link
+      rel="stylesheet"
+      data-lesson-diagram-style
+      href="../../../skills/build-lesson-notes/assets/diagram.css"
+    >
+  </head>
+  <body>
+    <main
+      id="lesson-diagram"
+      aria-labelledby="diagram-title"
+      data-render-state="pending"
+    >
+      <h1 id="diagram-title" class="visually-hidden">Один запрос пересекает четыре границы ответственности</h1>
+      <script id="diagram-data" type="application/json">
+        {
+          "title": "Один запрос пересекает четыре границы ответственности",
+          "width": 1080,
+          "height": 760,
+          "direction": "top-down",
+          "nodes": [
+            {
+              "id": "user",
+              "label": "Запрос\nпользователя",
+              "rank": 0,
+              "order": 0,
+              "kind": "actor"
+            },
+            {
+              "id": "workflow",
+              "label": "Workflow\nфиксированный порядок",
+              "rank": 1,
+              "order": 0,
+              "kind": "info"
+            },
+            {
+              "id": "agent-loop",
+              "label": "AgentLoop\nдинамический выбор",
+              "rank": 1,
+              "order": 1,
+              "kind": "accent"
+            },
+            {
+              "id": "selected-step",
+              "label": "Выбранный шаг\nвызвать get_weather",
+              "rank": 2,
+              "order": 0,
+              "kind": "success"
+            },
+            {
+              "id": "model-client",
+              "label": "ModelClient\nодно обращение к LLM",
+              "rank": 2,
+              "order": 1,
+              "kind": "info"
+            },
+            {
+              "id": "provider-api",
+              "label": "API\nпоставщика LLM",
+              "rank": 3,
+              "order": 2,
+              "kind": "default"
+            },
+            {
+              "id": "distributed-executor",
+              "label": "Распределённый\nисполнитель\nтолько размещение",
+              "rank": 3,
+              "order": 1,
+              "kind": "info"
+            },
+            {
+              "id": "weather-tool",
+              "label": "Разрешённый tool\nget_weather",
+              "rank": 3,
+              "order": 0,
+              "kind": "default"
+            }
+          ],
+          "edges": [
+            {
+              "from": "user",
+              "to": "workflow",
+              "label": "Фиксированный путь",
+              "lane": -1
+            },
+            {
+              "from": "user",
+              "to": "agent-loop",
+              "label": "Адаптивный путь",
+              "lane": 1
+            },
+            {
+              "from": "workflow",
+              "to": "selected-step",
+              "label": "Выбор кодом",
+              "lane": -1
+            },
+            {
+              "from": "agent-loop",
+              "to": "model-client",
+              "label": "Предложи действие",
+              "lane": 1
+            },
+            {
+              "from": "agent-loop",
+              "to": "selected-step",
+              "label": "После проверки",
+              "lane": -1
+            },
+            {
+              "from": "selected-step",
+              "to": "weather-tool",
+              "label": "Локально",
+              "lane": -1
+            },
+            {
+              "from": "selected-step",
+              "to": "distributed-executor",
+              "label": "Удалённо",
+              "lane": 1,
+              "dashed": true
+            },
+            {
+              "from": "model-client",
+              "to": "provider-api",
+              "label": "Протокол API"
+            }
+          ]
+        }
+      </script>
+    </main>
+    <script
+      data-lesson-diagram-runtime
+      src="../../../skills/build-lesson-notes/assets/diagram.js"
+    ></script>
+  </body>
+</html>
