@@ -25,9 +25,12 @@ security, evals и production capstone.
 │   └── senior_ai_agent_engineer_2026.pdf
 ├── notes/
 │   └── README.md
+├── progress/
+│   └── progress.json
 ├── skills/
 │   ├── build-lesson-notes/
 │   ├── build-lesson-presentation/
+│   ├── track-learning-progress/
 │   └── tavily-search/
 ├── pyproject.toml
 └── uv.lock
@@ -36,6 +39,20 @@ security, evals и production capstone.
 Новые материалы будут появляться в `lessons/module_XX_topic` по мере
 прохождения трека. Пустые директории для всех 14 модулей заранее не создаются.
 Конспекты уроков хранятся в `notes/module_XX_topic` в Markdown и PDF.
+
+Текущий доказательный прогресс хранится в
+[`progress/progress.json`](progress/progress.json). Показать и проверить его:
+
+```bash
+uv run --frozen python \
+  skills/track-learning-progress/scripts/progress_tracker.py show
+
+uv run --frozen python \
+  skills/track-learning-progress/scripts/progress_tracker.py validate
+```
+
+Правила переходов и фиксации доказательств описаны в
+[`skills/track-learning-progress/SKILL.md`](skills/track-learning-progress/SKILL.md).
 
 ## Быстрый старт
 

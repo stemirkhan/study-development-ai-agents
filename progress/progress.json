@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "revision": 1,
+  "updated_at": "2026-07-27",
+  "track": {
+    "id": "senior-ai-agent-engineer-2026",
+    "title": "Senior AI Agent Engineer 2026",
+    "plan": "docs/senior_ai_agent_engineer_2026.md"
+  },
+  "current": {
+    "module": "01",
+    "topic": "1.1"
+  },
+  "modules": {
+    "01": {
+      "title": "Среда выполнения LLM и абстракция поставщика",
+      "expected_topics": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+        "1.6"
+      ],
+      "topics": {
+        "1.1": {
+          "title": "LLM — ещё не Agent",
+          "stages": {
+            "theory": {
+              "status": "complete",
+              "evidence": [
+                {
+                  "kind": "artifact",
+                  "ref": "notes/module_01_model_vs_agent/module_01_model_vs_agent.md",
+                  "sha256": "409d56542ad316fa81cf489e5ee6f44defbfdfa9ce435eea4c6af0de87ae0e54",
+                  "git_revision": "d5c6d3816320ce27d3f693af00fb15f9e238d910",
+                  "verified_at": "2026-07-27"
+                },
+                {
+                  "kind": "artifact",
+                  "ref": "notes/module_01_model_vs_agent/module_01_model_vs_agent.pdf",
+                  "sha256": "90dcb9da4ca8e545c344e3f04a7bcf5bcf126d3ab525e7a53a8c1bf31e12a27d",
+                  "git_revision": "d5c6d3816320ce27d3f693af00fb15f9e238d910",
+                  "verified_at": "2026-07-27"
+                }
+              ]
+            },
+            "implementation": {
+              "status": "complete",
+              "evidence": [
+                {
+                  "kind": "artifact",
+                  "ref": "lessons/module_01_model_vs_agent/implementation/demo.py",
+                  "sha256": "0d4c93a9bf24fdea69f7f14216efc5c5878532f85ec1ad2a07c41f8635a0798f",
+                  "git_revision": "d5c6d3816320ce27d3f693af00fb15f9e238d910",
+                  "verified_at": "2026-07-27"
+                },
+                {
+                  "kind": "commit",
+                  "ref": "d5c6d38",
+                  "verified_at": "2026-07-27"
+                }
+              ]
+            },
+            "verification": {
+              "status": "complete",
+              "evidence": [
+                {
+                  "kind": "test",
+                  "ref": "uv run --frozen pytest -q lessons/module_01_model_vs_agent/tests",
+                  "result": "44 passed",
+                  "exit_code": 0,
+                  "git_revision": "d5c6d3816320ce27d3f693af00fb15f9e238d910",
+                  "verified_at": "2026-07-27"
+                }
+              ]
+            },
+            "guided_code_tour": {
+              "status": "in_progress",
+              "evidence": [
+                {
+                  "kind": "review",
+                  "ref": "Разобраны contracts.py, model_client.py и agent_loop.py; Workflow и DistributedExecutor ещё не разобраны.",
+                  "result": "partial",
+                  "verified_at": "2026-07-27"
+                }
+              ]
+            },
+            "understanding_check": {
+              "status": "in_progress",
+              "evidence": [
+                {
+                  "kind": "review",
+                  "ref": "Студент верно определил, что неизвестный tool отклоняется в AgentLoop через UnknownTool.",
+                  "result": "partial",
+                  "verified_at": "2026-07-27"
+                }
+              ]
+            },
+            "notes_finalized": {
+              "status": "pending",
+              "evidence": []
+            }
+          }
+        }
+      },
+      "gate": {
+        "status": "not_met",
+        "criteria": {
+          "shared_contract_two_adapters": {
+            "description": "Два адаптера проходят один набор контрактных тестов.",
+            "status": "pending",
+            "evidence": []
+          },
+          "provider_metadata_preserved": {
+            "description": "Метаданные поставщика не теряются.",
+            "status": "pending",
+            "evidence": []
+          },
+          "stream_cancellation_and_deadline": {
+            "description": "Отмена и крайний срок передаются через поток.",
+            "status": "pending",
+            "evidence": []
+          },
+          "fallback_capability_check": {
+            "description": "Резервный маршрут проверяет требуемые возможности.",
+            "status": "pending",
+            "evidence": []
+          },
+          "record_replay_fixture": {
+            "description": "Есть воспроизводимый эталон записи и воспроизведения.",
+            "status": "pending",
+            "evidence": []
+          }
+        },
+        "adr": null,
+        "evaluation_report": null,
+        "git_tag": null,
+        "git_revision": null
+      }
+    }
+  },
+  "history": [
+    {
+      "revision": 1,
+      "at": "2026-07-27",
+      "actor": "ai-tutor",
+      "action": "tracker_initialized",
+      "target": "module:01/topic:1.1",
+      "summary": "Начальное состояние восстановлено по конспекту, реализации, тестам, commit и проведённому code tour."
+    }
+  ]
+}
