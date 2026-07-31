@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "revision": 7,
+  "revision": 10,
   "updated_at": "2026-07-31",
   "track": {
     "id": "senior-ai-agent-engineer-2026",
@@ -159,16 +159,45 @@
               ]
             },
             "implementation": {
-              "status": "pending",
-              "evidence": []
+              "status": "complete",
+              "evidence": [
+                {
+                  "kind": "artifact",
+                  "ref": "lessons/module_01_provider_contract/implementation/demo.py",
+                  "sha256": "007a94d1ed735444f5ebc648b02ae49e6fe72eebb8f4d50376ce7f0aafefcbc4",
+                  "git_revision": "6032f2c04d0ecc17b9d5af6b537d436390e3cb90",
+                  "verified_at": "2026-07-31"
+                },
+                {
+                  "kind": "commit",
+                  "ref": "6032f2c",
+                  "verified_at": "2026-07-31"
+                }
+              ]
             },
             "verification": {
-              "status": "pending",
-              "evidence": []
+              "status": "complete",
+              "evidence": [
+                {
+                  "kind": "test",
+                  "ref": "env UV_CACHE_DIR=/tmp/study-ai-agents-uv-cache uv run --frozen pytest -q lessons/module_01_provider_contract/tests",
+                  "result": "64 passed in 0.10s",
+                  "exit_code": 0,
+                  "git_revision": "6032f2c04d0ecc17b9d5af6b537d436390e3cb90",
+                  "verified_at": "2026-07-31"
+                }
+              ]
             },
             "guided_code_tour": {
-              "status": "pending",
-              "evidence": []
+              "status": "in_progress",
+              "evidence": [
+                {
+                  "kind": "review",
+                  "ref": "Показаны фактическое дерево, успешная и оборванная end-to-end трассы; начат разбор contracts.py",
+                  "result": "partial",
+                  "verified_at": "2026-07-31"
+                }
+              ]
             },
             "understanding_check": {
               "status": "pending",
@@ -273,6 +302,30 @@
       "action": "stage_recorded",
       "target": "module:01/topic:1.2/stage:theory",
       "summary": "in_progress -> complete; added_evidence=2; invalidated=[]"
+    },
+    {
+      "revision": 8,
+      "at": "2026-07-31",
+      "actor": "ai-tutor",
+      "action": "stage_recorded",
+      "target": "module:01/topic:1.2/stage:implementation",
+      "summary": "pending -> complete; added_evidence=2; invalidated=[]"
+    },
+    {
+      "revision": 9,
+      "at": "2026-07-31",
+      "actor": "ai-tutor",
+      "action": "stage_recorded",
+      "target": "module:01/topic:1.2/stage:verification",
+      "summary": "pending -> complete; added_evidence=1; invalidated=[]"
+    },
+    {
+      "revision": 10,
+      "at": "2026-07-31",
+      "actor": "ai-tutor",
+      "action": "stage_recorded",
+      "target": "module:01/topic:1.2/stage:guided_code_tour",
+      "summary": "pending -> in_progress; added_evidence=1; invalidated=[]"
     }
   ]
 }
