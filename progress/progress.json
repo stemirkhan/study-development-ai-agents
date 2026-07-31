@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "revision": 1,
-  "updated_at": "2026-07-27",
+  "revision": 4,
+  "updated_at": "2026-07-31",
   "track": {
     "id": "senior-ai-agent-engineer-2026",
     "title": "Senior AI Agent Engineer 2026",
@@ -76,24 +76,42 @@
               ]
             },
             "guided_code_tour": {
-              "status": "in_progress",
+              "status": "complete",
               "evidence": [
                 {
                   "kind": "review",
                   "ref": "Разобраны contracts.py, model_client.py и agent_loop.py; Workflow и DistributedExecutor ещё не разобраны.",
                   "result": "partial",
                   "verified_at": "2026-07-27"
+                },
+                {
+                  "kind": "review",
+                  "ref": "Разобраны Workflow и DistributedExecutor по успешной трассе, ошибкам, deadline, cancellation и ambiguous completion.",
+                  "result": "passed",
+                  "verified_at": "2026-07-28"
                 }
               ]
             },
             "understanding_check": {
-              "status": "in_progress",
+              "status": "complete",
               "evidence": [
                 {
                   "kind": "review",
                   "ref": "Студент верно определил, что неизвестный tool отклоняется в AgentLoop через UnknownTool.",
                   "result": "partial",
                   "verified_at": "2026-07-27"
+                },
+                {
+                  "kind": "review",
+                  "ref": "Prediction check: верно определены отсутствие запуска AgentLoop, ModelClient, tool и attempt_started; требуется различать внешний WorkflowStepFailed и TaskDeadlineExceeded в cause.",
+                  "result": "partial",
+                  "verified_at": "2026-07-31"
+                },
+                {
+                  "kind": "review",
+                  "ref": "Студент корректно воспроизвёл цепочку: WorkflowStepFailed содержит TaskDeadlineExceeded в cause, а task_id является полем исходной ошибки.",
+                  "result": "passed",
+                  "verified_at": "2026-07-31"
                 }
               ]
             },
@@ -148,6 +166,30 @@
       "action": "tracker_initialized",
       "target": "module:01/topic:1.1",
       "summary": "Начальное состояние восстановлено по конспекту, реализации, тестам, commit и проведённому code tour."
+    },
+    {
+      "revision": 2,
+      "at": "2026-07-28",
+      "actor": "ai-tutor",
+      "action": "stage_recorded",
+      "target": "module:01/topic:1.1/stage:guided_code_tour",
+      "summary": "in_progress -> complete; added_evidence=1; invalidated=[]"
+    },
+    {
+      "revision": 3,
+      "at": "2026-07-31",
+      "actor": "ai-tutor",
+      "action": "stage_recorded",
+      "target": "module:01/topic:1.1/stage:understanding_check",
+      "summary": "in_progress -> in_progress; added_evidence=1; invalidated=[]"
+    },
+    {
+      "revision": 4,
+      "at": "2026-07-31",
+      "actor": "ai-tutor",
+      "action": "stage_recorded",
+      "target": "module:01/topic:1.1/stage:understanding_check",
+      "summary": "in_progress -> complete; added_evidence=1; invalidated=[]"
     }
   ]
 }
