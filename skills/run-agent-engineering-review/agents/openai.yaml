@@ -1,0 +1,4 @@
+interface:
+  display_name: "Инженерная защита Agent"
+  short_description: "Связывает разбор кода с решениями и рисками Agent"
+  default_prompt: "Используй $run-agent-engineering-review, чтобы провести инженерную защиту текущей реализации Agent через решение, инвариант, компромисс и проверяемое доказательство."

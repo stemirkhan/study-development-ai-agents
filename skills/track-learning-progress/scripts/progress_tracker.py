@@ -32,6 +32,16 @@ STAGES = (
 )
 STATUSES = {"pending", "in_progress", "blocked", "complete"}
 REVIEW_RESULTS = {"partial", "passed", "failed"}
+UNDERSTANDING_REVIEW_TYPES = {
+    "architecture_decision",
+    "failure_analysis",
+    "change_impact",
+    "security_boundary",
+    "baseline_comparison",
+    "operational_readiness",
+}
+UNDERSTANDING_PROOF_KINDS = {"test", "trace", "diff", "metric", "experiment"}
+UNDERSTANDING_POLICY_VERSION = 1
 COMMIT_RE = re.compile(r"^[0-9a-f]{7,40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 TAG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
@@ -187,6 +197,145 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _understanding_valid(value: object, *, path: str) -> JsonObject:
+    understanding = _object(value, path)
+    _need(
+        understanding.get("version") == 1
+        and type(understanding.get("version")) is int,
+        f"{path}.version must be the integer 1",
+    )
+    review_type = _text(
+        understanding.get("review_type"),
+        f"{path}.review_type",
+    )
+    _need(
+        review_type in UNDERSTANDING_REVIEW_TYPES,
+        f"{path}.review_type must be one of "
+        f"{sorted(UNDERSTANDING_REVIEW_TYPES)}",
+    )
+    for field in (
+        "agent_impact",
+        "decision",
+        "invariant",
+        "tradeoff",
+    ):
+        _text(understanding.get(field), f"{path}.{field}")
+    proof = _object(understanding.get("proof"), f"{path}.proof")
+    proof_kind = _text(proof.get("kind"), f"{path}.proof.kind")
+    _need(
+        proof_kind in UNDERSTANDING_PROOF_KINDS,
+        f"{path}.proof.kind must be one of "
+        f"{sorted(UNDERSTANDING_PROOF_KINDS)}",
+    )
+    _text(proof.get("ref"), f"{path}.proof.ref")
+    return understanding
+
+
+def _passed_structured_understanding(
+    value: object,
+    *,
+    path: str,
+) -> bool:
+    if not isinstance(value, dict):
+        return False
+    evidence = cast(JsonObject, value)
+    if (
+        evidence.get("kind") != "review"
+        or evidence.get("result") != "passed"
+        or evidence.get("superseded_at_revision") is not None
+        or evidence.get("role") == "reopen_reason"
+        or "understanding" not in evidence
+    ):
+        return False
+    _understanding_valid(
+        evidence["understanding"],
+        path=f"{path}.understanding",
+    )
+    return True
+
+
+def _matching_understanding_proofs(
+    review: JsonObject,
+    evidence: Sequence[object],
+    *,
+    path: str,
+) -> list[JsonObject]:
+    understanding = _understanding_valid(
+        review.get("understanding"),
+        path=f"{path}.understanding",
+    )
+    proof = _object(
+        understanding.get("proof"),
+        f"{path}.understanding.proof",
+    )
+    proof_kind = cast(str, proof["kind"])
+    proof_ref = cast(str, proof["ref"])
+    matches: list[JsonObject] = []
+    for value in evidence:
+        if not isinstance(value, dict):
+            continue
+        candidate = cast(JsonObject, value)
+        if (
+            candidate is review
+            or candidate.get("superseded_at_revision") is not None
+            or candidate.get("role") == "reopen_reason"
+            or candidate.get("ref") != proof_ref
+        ):
+            continue
+        candidate_kind = candidate.get("kind")
+        exit_code = candidate.get("exit_code")
+        passing_test = (
+            candidate_kind == "test"
+            and type(exit_code) is int
+            and exit_code == 0
+        )
+        if (
+            (proof_kind == "test" and passing_test)
+            or (
+                proof_kind in {"trace", "metric", "experiment"}
+                and (candidate_kind == "artifact" or passing_test)
+            )
+            or (proof_kind == "diff" and candidate_kind == "commit")
+        ):
+            matches.append(candidate)
+    return matches
+
+
+def _passed_applied_understanding(
+    value: object,
+    evidence: Sequence[object],
+    *,
+    path: str,
+) -> bool:
+    if not _passed_structured_understanding(value, path=path):
+        return False
+    review = cast(JsonObject, value)
+    return bool(_matching_understanding_proofs(review, evidence, path=path))
+
+
+def _new_applied_understanding_bundle(
+    evidence: Sequence[Evidence],
+) -> bool:
+    passed_reviews = [
+        cast(JsonObject, item)
+        for index, item in enumerate(evidence)
+        if _passed_structured_understanding(
+            item,
+            path=f"new_evidence[{index}]",
+        )
+    ]
+    if len(evidence) != 2 or len(passed_reviews) != 1:
+        return False
+    review = passed_reviews[0]
+    return len(
+        _matching_understanding_proofs(
+            review,
+            evidence,
+            path="new_understanding_review",
+        )
+    ) == 1
+
+
 def _evidence_valid(
     value: object,
     *,
@@ -251,6 +400,11 @@ def _evidence_valid(
             evidence.get("result") in REVIEW_RESULTS,
             f"{path}.result must be one of {sorted(REVIEW_RESULTS)}",
         )
+        if "understanding" in evidence:
+            _understanding_valid(
+                evidence["understanding"],
+                path=f"{path}.understanding",
+            )
     return evidence
 
 
@@ -320,16 +474,36 @@ def _validate_stage(
             repo_root=repo_root,
             repository=repository,
         )
-    if status != "complete":
-        return
-
-    _need(_successful(evidence), f"{path}=complete needs successful evidence")
     active = [
         item
         for item in evidence
         if isinstance(item, dict)
         and item.get("superseded_at_revision") is None
     ]
+    if name == "understanding_check":
+        for index, item in enumerate(evidence):
+            if not (
+                isinstance(item, dict)
+                and item.get("kind") == "review"
+                and item.get("result") == "passed"
+                and item.get("superseded_at_revision") is None
+                and item.get("role") != "reopen_reason"
+                and "understanding" in item
+            ):
+                continue
+            _need(
+                _matching_understanding_proofs(
+                    cast(JsonObject, item),
+                    evidence,
+                    path=f"{path}.evidence[{index}]",
+                ),
+                f"{path}.evidence[{index}].understanding.proof must match an "
+                "active proof evidence in the same stage",
+            )
+    if status != "complete":
+        return
+
+    _need(_successful(evidence), f"{path}=complete needs successful evidence")
     if name == "theory":
         suffixes = {
             Path(cast(str, item["ref"])).suffix.lower()
@@ -419,6 +593,30 @@ def _validate_topic(
             )
 
 
+def _has_passed_applied_understanding(
+    topic: JsonObject,
+    *,
+    path: str,
+) -> bool:
+    stages = _object(topic.get("stages"), f"{path}.stages")
+    stage = _object(
+        stages.get("understanding_check"),
+        f"{path}.stages.understanding_check",
+    )
+    evidence = _array(
+        stage.get("evidence"),
+        f"{path}.stages.understanding_check.evidence",
+    )
+    return any(
+        _passed_applied_understanding(
+            item,
+            evidence,
+            path=f"{path}.stages.understanding_check.evidence[{index}]",
+        )
+        for index, item in enumerate(evidence)
+    )
+
+
 def _validate_gate(
     gate: JsonObject,
     *,
@@ -464,8 +662,23 @@ def _validate_gate(
                 f"{criterion_path}=complete needs successful evidence",
             )
 
+    policy_field = "understanding_policy_version"
     if status != "passed":
+        _need(
+            policy_field not in gate,
+            f"{path}.{policy_field} must be absent while Gate is not_met",
+        )
         return
+    policy_version: int | None = None
+    if policy_field in gate:
+        raw_policy_version = gate[policy_field]
+        _need(
+            type(raw_policy_version) is int
+            and raw_policy_version == UNDERSTANDING_POLICY_VERSION,
+            f"{path}.{policy_field} must be the integer "
+            f"{UNDERSTANDING_POLICY_VERSION}",
+        )
+        policy_version = cast(int, raw_policy_version)
 
     expected = [
         _text(item, f"{path}.expected_topic")
@@ -480,6 +693,21 @@ def _validate_gate(
         != "complete"
     ]
     _need(not incomplete, f"{path}=passed has incomplete topics: {incomplete}")
+    if policy_version == UNDERSTANDING_POLICY_VERSION:
+        topics_without_applied_understanding = [
+            topic_id
+            for topic_id in expected
+            if not _has_passed_applied_understanding(
+                _object(topics[topic_id], f"topic.{topic_id}"),
+                path=f"topic.{topic_id}",
+            )
+        ]
+        _need(
+            not topics_without_applied_understanding,
+            f"{path}=passed needs an active passed applied structured "
+            "understanding review for topics: "
+            f"{topics_without_applied_understanding}",
+        )
     incomplete_criteria = [
         criterion_id
         for criterion_id, value in criteria.items()
@@ -722,15 +950,32 @@ def record_stage(
     reopen: bool = False,
 ) -> None:
     current = _object(document["current"], "current")
+    module, topic = _get_topic(document, module_id, topic_id)
+    gate = _object(module.get("gate"), f"module.{module_id}.gate")
     _need(
-        (current["module"], current["topic"]) == (module_id, topic_id),
-        "only the current topic may be updated",
+        gate.get("status") != "passed",
+        f"module {module_id} stages cannot change after Gate passed",
     )
-    _, topic = _get_topic(document, module_id, topic_id)
     stages = _object(topic["stages"], "stages")
     _need(stage_name in stages, f"unknown stage {stage_name}")
     stage = _object(stages[stage_name], f"stage.{stage_name}")
     old = cast(str, stage["status"])
+    has_new_applied_understanding_bundle = _new_applied_understanding_bundle(
+        evidence
+    )
+    non_current_understanding_review = (
+        stage_name == "understanding_check"
+        and old == "complete"
+        and new_status == "complete"
+        and not reopen
+        and has_new_applied_understanding_bundle
+    )
+    _need(
+        (current["module"], current["topic"]) == (module_id, topic_id)
+        or non_current_understanding_review,
+        "only the current topic may be updated, except for a new structured "
+        "review of a completed understanding_check",
+    )
     _transition(
         old,
         new_status,
@@ -738,6 +983,13 @@ def record_stage(
         evidence=evidence,
         target=stage_name,
     )
+    if stage_name == "understanding_check" and new_status == "complete":
+        _need(
+            has_new_applied_understanding_bundle,
+            "recording understanding_check=complete needs exactly one newly "
+            "supplied passed structured review and exactly one matching proof "
+            "evidence",
+        )
     stored = _array(stage["evidence"], f"stage.{stage_name}.evidence")
     invalidated: list[str] = []
     if reopen:
@@ -989,6 +1241,26 @@ def pass_gate(
     module = _object(modules[module_id], f"module.{module_id}")
     gate = _object(module["gate"], "gate")
     _need(gate["status"] != "passed", "Gate is already passed")
+    expected = _array(module["expected_topics"], "expected_topics")
+    topics = _object(module["topics"], "topics")
+    completed_without_applied_understanding: list[str] = []
+    for value in expected:
+        topic_id = _text(value, "expected_topic")
+        if topic_id not in topics:
+            continue
+        topic = _object(topics[topic_id], f"topic.{topic_id}")
+        if topic_status(topic) == "complete" and not (
+            _has_passed_applied_understanding(
+                topic,
+                path=f"topic.{topic_id}",
+            )
+        ):
+            completed_without_applied_understanding.append(topic_id)
+    _need(
+        not completed_without_applied_understanding,
+        "Gate needs an active passed applied structured understanding review "
+        f"for completed topics: {completed_without_applied_understanding}",
+    )
     gate.update(
         {
             "status": "passed",
@@ -996,6 +1268,7 @@ def pass_gate(
             "evaluation_report": evaluation_report,
             "git_tag": git_tag,
             "git_revision": git_revision,
+            "understanding_policy_version": UNDERSTANDING_POLICY_VERSION,
         }
     )
     _append_history(
@@ -1206,6 +1479,22 @@ def _evidence_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--verified-at", default=date.today().isoformat())
 
 
+def _understanding_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--review-type",
+        choices=sorted(UNDERSTANDING_REVIEW_TYPES),
+    )
+    parser.add_argument("--agent-impact")
+    parser.add_argument("--decision")
+    parser.add_argument("--invariant")
+    parser.add_argument("--tradeoff")
+    parser.add_argument(
+        "--proof-kind",
+        choices=sorted(UNDERSTANDING_PROOF_KINDS),
+    )
+    parser.add_argument("--proof")
+
+
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(description=__doc__)
     root.add_argument("--file", type=Path, default=DEFAULT_PROGRESS_PATH)
@@ -1241,6 +1530,7 @@ def parser() -> argparse.ArgumentParser:
     stage = commands.add_parser("record-stage")
     _common(stage)
     _evidence_args(stage)
+    _understanding_args(stage)
     stage.add_argument("--module", required=True)
     stage.add_argument("--topic", required=True)
     stage.add_argument("--stage", choices=STAGES, required=True)
@@ -1279,7 +1569,7 @@ def _from_args(
     repo_root: Path,
     repository: RepositoryProbe,
 ) -> list[Evidence]:
-    return build_evidence(
+    evidence = build_evidence(
         artifacts=arguments.artifact,
         commits=arguments.commit,
         test_command=arguments.test_command,
@@ -1291,6 +1581,44 @@ def _from_args(
         repo_root=repo_root,
         repository=repository,
     )
+    understanding_values = (
+        getattr(arguments, "review_type", None),
+        getattr(arguments, "agent_impact", None),
+        getattr(arguments, "decision", None),
+        getattr(arguments, "invariant", None),
+        getattr(arguments, "tradeoff", None),
+        getattr(arguments, "proof_kind", None),
+        getattr(arguments, "proof", None),
+    )
+    if not any(value is not None for value in understanding_values):
+        return evidence
+    _need(
+        all(value is not None for value in understanding_values),
+        "review type, Agent impact, decision, invariant, tradeoff, proof kind "
+        "and proof must be provided together",
+    )
+    _need(
+        arguments.stage == "understanding_check",
+        "structured understanding review applies only to understanding_check",
+    )
+    reviews = [item for item in evidence if item.get("kind") == "review"]
+    _need(
+        len(reviews) == 1,
+        "structured understanding review requires exactly one --review",
+    )
+    reviews[0]["understanding"] = {
+        "version": 1,
+        "review_type": arguments.review_type,
+        "agent_impact": arguments.agent_impact,
+        "decision": arguments.decision,
+        "invariant": arguments.invariant,
+        "tradeoff": arguments.tradeoff,
+        "proof": {
+            "kind": arguments.proof_kind,
+            "ref": arguments.proof,
+        },
+    }
+    return evidence
 
 
 def main(

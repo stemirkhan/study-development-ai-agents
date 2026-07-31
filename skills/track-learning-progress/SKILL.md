@@ -38,8 +38,22 @@ uv run --frozen python \
   доказательством выполнения.
 - `verification=complete` записывать только после фактического запуска команды
   и сохранять точный итог.
-- `understanding_check=complete` записывать после ответа студента и проверки
-  конкретного предсказания, diff, ошибки или результата теста.
+- Ответ-викторина, поиск имени класса, исключения или очевидной ветки не
+  закрывает `understanding_check`; такой результат можно записать только как
+  `partial` со статусом `in_progress`.
+- Новый переход `understanding_check=complete` требует одной новой
+  структурированной записи `review` с `result=passed`: тип инженерной защиты,
+  влияние на Agent, решение, инвариант, компромисс и проверяемое
+  доказательство. Та же команда должна добавить ровно одну отдельную запись
+  доказательства, на которую ссылается `understanding.proof.ref`; других
+  доказательств в команде закрытия быть не должно.
+- Структурированная запись `review` с `result=partial` может описывать
+  предлагаемый `proof` до запуска эксперимента. Для `result=passed` указанный
+  `proof` обязан быть уже активным доказательством в том же
+  `understanding_check`.
+- Не дополнять исторические записи `review` выдуманными структурированными
+  полями. Для уже завершённой темы провести новую защиту и добавить её
+  отдельной командой `complete -> complete` с фактической датой.
 - `notes_finalized=complete` записывать только после обновления Markdown,
   пересборки PDF и их проверки.
 - При опровержении доказательства переоткрывать этап с объяснением; не
@@ -71,6 +85,44 @@ uv run --frozen python \
 
 Для зафиксированных файлов использовать `--artifact`, для commit —
 `--commit`. Все пути должны быть относительными корню репозитория.
+
+Проверку понимания записывать одной командой. Допустимые `--review-type`:
+`architecture_decision`, `failure_analysis`, `change_impact`,
+`security_boundary`, `baseline_comparison`, `operational_readiness`.
+Допустимые значения `--proof-kind`: `test`, `trace`, `diff`, `metric`,
+`experiment`.
+
+Связь `proof` с доказательством определяется по точному совпадению `ref`:
+
+- `test` — отдельная успешная запись `test` с `exit_code=0`;
+- `trace`, `metric`, `experiment` — запись `artifact` либо успешная запись
+  `test`;
+- `diff` — запись `commit`.
+
+```bash
+uv run --frozen python \
+  skills/track-learning-progress/scripts/progress_tracker.py \
+  record-stage --expected-revision 3 \
+  --module 01 --topic 1.1 --stage understanding_check \
+  --status complete \
+  --review "Разобран неоднозначно завершившийся tool с побочным эффектом" \
+  --review-result passed \
+  --review-type failure_analysis \
+  --agent-impact "Повтор меняет состояние Agent и может удвоить эффект" \
+  --decision "Не повторять до сверки idempotency key" \
+  --invariant "Один ключ приводит не более чем к одному эффекту" \
+  --tradeoff "Сверка увеличивает время восстановления" \
+  --proof-kind test \
+  --proof "uv run --frozen pytest -q lessons/module_01_model_vs_agent/tests/test_agent.py::test_ambiguous_completion_does_not_repeat_side_effect" \
+  --test-command "uv run --frozen pytest -q lessons/module_01_model_vs_agent/tests/test_agent.py::test_ambiguous_completion_does_not_repeat_side_effect" \
+  --test-result "1 passed" \
+  --test-exit-code 0
+```
+
+Структурированная запись хранится как `review.understanding.version=1`;
+отдельного CLI-флага версии нет. Все её поля передаются вместе и относятся
+ровно к одному `--review`. Значение `--proof` должно буквально совпадать с
+`ref` второго доказательства: в примере — со значением `--test-command`.
 
 Чтобы исправить ошибочно закрытый этап, использовать `--reopen` со статусом
 `in_progress` или `blocked` и обязательным `--review` с причиной. Старые
@@ -123,6 +175,9 @@ uv run --frozen python \
 
 - все `expected_topics` существуют и все шесть стадий каждой темы имеют
   `status=complete`;
+- `understanding_check` каждой темы содержит активную подтверждённую пару:
+  структурированную запись `review` версии 1 с `result=passed` и совпадающее
+  доказательство `proof`;
 - каждый критерий имеет `status=complete` и активное доказательство;
 - ADR и отчёт об оценке существуют, непусты и зафиксированы в Git;
 - указанный git tag существует.
@@ -130,7 +185,10 @@ uv run --frozen python \
 Последовательность: зафиксировать ADR и отчёт, создать tag на этом commit,
 затем вызвать `pass-gate` с `--adr`, `--evaluation-report`, `--git-tag` и
 `--git-revision` этого же commit. После проверки зафиксировать обновление
-трекера отдельным commit.
+трекера отдельным commit. Новый `pass-gate` автоматически сохраняет
+`understanding_policy_version=1`; это поле делает проверку доказательства
+частью сохранённого Gate. Исторический пройденный Gate без поля остаётся
+валидным, но для Gate со статусом `not_met` поле должно отсутствовать.
 
 ## После изменения
 
