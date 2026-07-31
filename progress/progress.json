@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "revision": 6,
+  "revision": 7,
   "updated_at": "2026-07-31",
   "track": {
     "id": "senior-ai-agent-engineer-2026",
@@ -140,8 +140,23 @@
           "title": "Независимый от поставщика контракт",
           "stages": {
             "theory": {
-              "status": "in_progress",
-              "evidence": []
+              "status": "complete",
+              "evidence": [
+                {
+                  "kind": "artifact",
+                  "ref": "notes/module_01_provider_contract/module_01_provider_contract.md",
+                  "sha256": "5b3ea0662b44d76d05e4e741346ce3cf347ce762430fd254dea1d135d7e1e67d",
+                  "git_revision": "183d76d765e7ca3b87c9e9657589ddd0ead02187",
+                  "verified_at": "2026-07-31"
+                },
+                {
+                  "kind": "artifact",
+                  "ref": "notes/module_01_provider_contract/module_01_provider_contract.pdf",
+                  "sha256": "2a38f7e90627a77d4ba510a398a082d0d8bc6b6980cabf5b5574a5762b456cb6",
+                  "git_revision": "183d76d765e7ca3b87c9e9657589ddd0ead02187",
+                  "verified_at": "2026-07-31"
+                }
+              ]
             },
             "implementation": {
               "status": "pending",
@@ -250,6 +265,14 @@
       "action": "topic_started",
       "target": "module:01/topic:1.2",
       "summary": "Начата тема: Независимый от поставщика контракт"
+    },
+    {
+      "revision": 7,
+      "at": "2026-07-31",
+      "actor": "ai-tutor",
+      "action": "stage_recorded",
+      "target": "module:01/topic:1.2/stage:theory",
+      "summary": "in_progress -> complete; added_evidence=2; invalidated=[]"
     }
   ]
 }
