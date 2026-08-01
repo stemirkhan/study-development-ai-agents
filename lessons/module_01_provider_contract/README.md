@@ -19,6 +19,7 @@ lessons/module_01_provider_contract/
 │   └── demo.py
 └── tests/
     ├── contract_suite.py
+    ├── test_ambiguous_email_recovery.py
     ├── test_contracts.py
     ├── test_scripted_client.py
     ├── test_stream_assembly.py
@@ -69,6 +70,18 @@ lessons/module_01_provider_contract/
 `OutputCompleted` или `ResponseCompleted` не создаётся; вызывающий код видит
 частичный префикс и `ModelTransportError` как `cause`.
 
+## Fault-эксперимент инженерной защиты
+
+`test_ambiguous_email_recovery.py` связывает честное отсутствие provider
+`call_id` с состоянием Agent после crash вокруг `send_email`. Приложение
+владеет отдельным стабильным `operation_id`; новый runtime сначала выполняет
+reconciliation и различает `FOUND`, `TERMINALLY_ABSENT` и `UNKNOWN`.
+Автоматический retry разрешён только для терминально не принятой операции.
+
+Это test-only state machine: shared in-memory store имитирует durable state,
+а scripted lookup — строгий terminal oracle. Эксперимент не доказывает
+production transaction, генерацию ID или exactly-once delivery.
+
 ## Запуск
 
 ```bash
@@ -77,6 +90,9 @@ uv run --frozen python -m \
 
 uv run --frozen pytest -q \
   lessons/module_01_provider_contract/tests
+
+uv run --frozen pytest -q \
+  lessons/module_01_provider_contract/tests/test_ambiguous_email_recovery.py
 ```
 
 API token не нужен: `ScriptedModelClient` — детерминированная имитация LLM.
@@ -84,7 +100,8 @@ API token не нужен: `ScriptedModelClient` — детерминирова�
 ## Ограничения
 
 В этой теме нет wire-адаптера, SSE parser, backpressure-эксперимента,
-concurrent adapter, retry, deadline, routing и полного JSON Schema engine.
+concurrent adapter, production retry/recovery subsystem, deadline, routing и
+полного JSON Schema engine.
 Проверяются `schema_id`, соответствие `raw_json` разобранному значению и
 внедрённый validator. Полный JSON Schema engine не реализован; при настоящем
 API его должен подключить адаптер. Один fake не

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "revision": 10,
-  "updated_at": "2026-07-31",
+  "revision": 14,
+  "updated_at": "2026-08-01",
   "track": {
     "id": "senior-ai-agent-engineer-2026",
     "title": "Senior AI Agent Engineer 2026",
@@ -189,19 +189,64 @@
               ]
             },
             "guided_code_tour": {
-              "status": "in_progress",
+              "status": "complete",
               "evidence": [
                 {
                   "kind": "review",
                   "ref": "Показаны фактическое дерево, успешная и оборванная end-to-end трассы; начат разбор contracts.py",
                   "result": "partial",
                   "verified_at": "2026-07-31"
+                },
+                {
+                  "kind": "review",
+                  "ref": "Самостоятельно изучены конспект и README; ранее показаны карта, успешная и ошибочная сквозные трассы; обязательный построчный разбор не требуется",
+                  "result": "passed",
+                  "verified_at": "2026-08-01"
                 }
               ]
             },
             "understanding_check": {
-              "status": "pending",
-              "evidence": []
+              "status": "complete",
+              "evidence": [
+                {
+                  "kind": "review",
+                  "ref": "Для tool без provider call_id выбрана application-owned identity: ключ создаётся приложением, durable-состояние сохраняется транзакционно и после рестарта используется для восстановления без повторного эффекта; инвариант, tradeoff и опровергающий эксперимент требуют уточнения.",
+                  "result": "partial",
+                  "verified_at": "2026-08-01"
+                },
+                {
+                  "kind": "review",
+                  "ref": "Для неоднозначного send_email выбрана предметно-зависимая политика: повтор допустим при безвредном дубле, для чувствительного эффекта требуется reconciliation по журналу отправленных сообщений; границу между deterministic recovery runtime и решением LLM, а также тестовый оракул ещё нужно уточнить.",
+                  "result": "partial",
+                  "verified_at": "2026-08-01"
+                },
+                {
+                  "kind": "test",
+                  "ref": "env UV_CACHE_DIR=/tmp/study-ai-agents-uv-cache uv run --frozen pytest -q lessons/module_01_provider_contract/tests/test_ambiguous_email_recovery.py::test_recovery_reconciles_before_retrying_ambiguous_email",
+                  "result": "3 passed in 0.02s",
+                  "exit_code": 0,
+                  "git_revision": "28725410c903aba85bdbec6e518245f6768fd231",
+                  "verified_at": "2026-08-01"
+                },
+                {
+                  "kind": "review",
+                  "ref": "Crash после попытки send_email без provider call_id и восстановление неоднозначного внешнего эффекта",
+                  "result": "passed",
+                  "verified_at": "2026-08-01",
+                  "understanding": {
+                    "version": 1,
+                    "review_type": "failure_analysis",
+                    "agent_impact": "После crash Agent восстанавливает незавершённую операцию как effect_unknown; сверка переводит её в succeeded либо оставляет effect_unknown без слепого повтора.",
+                    "decision": "Приложение владеет стабильным operation_id и сохраняет операцию до эффекта; deterministic recovery runtime, а не LLM или ModelClient, сверяет внешний сервис и повторяет send_email только при авторитетном ABSENT.",
+                    "invariant": "Для чувствительного письма recovery не делает повтор без доказанного ABSENT; при FOUND и UNKNOWN дубль не создаётся, а в проверенных FOUND/ABSENT ветвях принят ровно один экземпляр.",
+                    "tradeoff": "Нужны durable state и дополнительный lookup; UNKNOWN задерживает результат или требует ручной проверки, тогда как предметно допустимый at-least-once повышает доступность ценой возможного дубля.",
+                    "proof": {
+                      "kind": "test",
+                      "ref": "env UV_CACHE_DIR=/tmp/study-ai-agents-uv-cache uv run --frozen pytest -q lessons/module_01_provider_contract/tests/test_ambiguous_email_recovery.py::test_recovery_reconciles_before_retrying_ambiguous_email"
+                    }
+                  }
+                }
+              ]
             },
             "notes_finalized": {
               "status": "pending",
@@ -326,6 +371,38 @@
       "action": "stage_recorded",
       "target": "module:01/topic:1.2/stage:guided_code_tour",
       "summary": "pending -> in_progress; added_evidence=1; invalidated=[]"
+    },
+    {
+      "revision": 11,
+      "at": "2026-08-01",
+      "actor": "ai-tutor",
+      "action": "stage_recorded",
+      "target": "module:01/topic:1.2/stage:guided_code_tour",
+      "summary": "in_progress -> complete; added_evidence=1; invalidated=[]"
+    },
+    {
+      "revision": 12,
+      "at": "2026-08-01",
+      "actor": "ai-tutor",
+      "action": "stage_recorded",
+      "target": "module:01/topic:1.2/stage:understanding_check",
+      "summary": "pending -> in_progress; added_evidence=1; invalidated=[]"
+    },
+    {
+      "revision": 13,
+      "at": "2026-08-01",
+      "actor": "ai-tutor",
+      "action": "stage_recorded",
+      "target": "module:01/topic:1.2/stage:understanding_check",
+      "summary": "in_progress -> in_progress; added_evidence=1; invalidated=[]"
+    },
+    {
+      "revision": 14,
+      "at": "2026-08-01",
+      "actor": "ai-tutor",
+      "action": "stage_recorded",
+      "target": "module:01/topic:1.2/stage:understanding_check",
+      "summary": "in_progress -> complete; added_evidence=2; invalidated=[]"
     }
   ]
 }
