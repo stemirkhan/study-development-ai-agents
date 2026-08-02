@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "revision": 16,
+  "revision": 17,
   "updated_at": "2026-08-02",
   "track": {
     "id": "senior-ai-agent-engineer-2026",
@@ -273,8 +273,23 @@
           "title": "Потоковый ответ и отмена",
           "stages": {
             "theory": {
-              "status": "in_progress",
-              "evidence": []
+              "status": "complete",
+              "evidence": [
+                {
+                  "kind": "artifact",
+                  "ref": "notes/module_01_streaming_cancellation/module_01_streaming_cancellation.md",
+                  "sha256": "0361fb7921a783da1683296d3cfc96609e7a24ffae967fad63fa4f273cb95f30",
+                  "git_revision": "051e074baaa69845e63d2f563632b8b71a6beac2",
+                  "verified_at": "2026-08-02"
+                },
+                {
+                  "kind": "artifact",
+                  "ref": "notes/module_01_streaming_cancellation/module_01_streaming_cancellation.pdf",
+                  "sha256": "d90cec1668597ae3f8bdaf8f0610daac406ebe7bd45bf01f5d5a50232e92d2a4",
+                  "git_revision": "051e074baaa69845e63d2f563632b8b71a6beac2",
+                  "verified_at": "2026-08-02"
+                }
+              ]
             },
             "implementation": {
               "status": "pending",
@@ -463,6 +478,14 @@
       "action": "topic_started",
       "target": "module:01/topic:1.3",
       "summary": "Начата тема: Потоковый ответ и отмена"
+    },
+    {
+      "revision": 17,
+      "at": "2026-08-02",
+      "actor": "ai-tutor",
+      "action": "stage_recorded",
+      "target": "module:01/topic:1.3/stage:theory",
+      "summary": "in_progress -> complete; added_evidence=2; invalidated=[]"
     }
   ]
 }
