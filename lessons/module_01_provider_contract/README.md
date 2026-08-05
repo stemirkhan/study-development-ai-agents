@@ -35,7 +35,7 @@ lessons/module_01_provider_contract/
 2. `ScriptedModelClient` потребляет ровно один заранее заданный сценарий на
    вызов. Он не вызывает сеть, не делает retry и не исполняет `tool`.
 3. `collect_stream` проверяет порядок событий, согласованность delta с
-   завершёнными блоками и единственный терминальный ответ.
+   завершёнными блоками и фиксирует ответ на проверенном терминальном событии.
 
 `demo.py` только собирает эти компоненты в две наблюдаемые трассы.
 
@@ -100,8 +100,9 @@ API token не нужен: `ScriptedModelClient` — детерминирова�
 ## Ограничения
 
 В этой теме нет wire-адаптера, SSE parser, backpressure-эксперимента,
-concurrent adapter, production retry/recovery subsystem, deadline, routing и
-полного JSON Schema engine.
+concurrent adapter, production retry/recovery subsystem, routing и полного
+JSON Schema engine. Передача единого крайнего срока и явные повторы добавлены
+в следующей практике 1.3.
 Проверяются `schema_id`, соответствие `raw_json` разобранному значению и
 внедрённый validator. Полный JSON Schema engine не реализован; при настоящем
 API его должен подключить адаптер. Один fake не

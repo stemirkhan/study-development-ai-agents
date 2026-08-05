@@ -71,18 +71,8 @@ async def test_successful_lifecycle_preserves_all_events() -> None:
             lambda events: (events[0], replace(events[1], sequence=3), *events[2:]),
             "expected event sequence 2",
         ),
-        (
-            lambda events: (
-                *events,
-                UnknownProviderEvent(
-                    sequence=11,
-                    provider_payload=demo_raw("late", "{}"),
-                ),
-            ),
-            "followed the terminal",
-        ),
     ],
-    ids=["missing-start", "sequence-gap", "after-terminal"],
+    ids=["missing-start", "sequence-gap"],
 )
 async def test_invalid_lifecycle_never_becomes_success(
     mutate: Callable[[tuple[ModelEvent, ...]], tuple[ModelEvent, ...]],
@@ -94,6 +84,51 @@ async def test_invalid_lifecycle_never_becomes_success(
 
     with pytest.raises(ModelProtocolError, match=message):
         await collect_stream(emit(mutated))
+
+
+async def test_local_protocol_failure_closes_the_source() -> None:
+    events = build_success_events(build_success_response())
+    source_closed = False
+
+    async def source() -> AsyncIterator[ModelEvent]:
+        nonlocal source_closed
+        try:
+            yield events[0]
+            yield replace(events[1], sequence=9)
+        finally:
+            source_closed = True
+
+    with pytest.raises(ModelProtocolError, match="expected event sequence 2"):
+        await collect_stream(source())
+
+    assert source_closed is True
+
+
+async def test_terminal_response_stops_consumption_and_closes_source() -> None:
+    expected = build_success_response()
+    events = build_success_events(expected)
+    late_event_requested = False
+    source_closed = False
+
+    async def source() -> AsyncIterator[ModelEvent]:
+        nonlocal late_event_requested, source_closed
+        try:
+            for event in events:
+                yield event
+            late_event_requested = True
+            yield UnknownProviderEvent(
+                sequence=11,
+                provider_payload=demo_raw("late", "{}"),
+            )
+        finally:
+            source_closed = True
+
+    collected = await collect_stream(source())
+
+    assert collected.response is expected
+    assert collected.events == events
+    assert late_event_requested is False
+    assert source_closed is True
 
 
 async def test_clean_eof_after_events_is_an_interruption_with_exact_prefix() -> None:

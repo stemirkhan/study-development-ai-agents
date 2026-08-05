@@ -5,7 +5,9 @@ import asyncio
 import pytest
 
 from lessons.module_01_provider_contract.implementation.contracts import (
+    Deadline,
     ModelClient,
+    ModelAttempt,
     ModelProtocolError,
     ModelRequest,
     ModelStreamInterrupted,
@@ -71,6 +73,28 @@ async def test_each_call_consumes_one_script_and_records_request_order() -> None
     with pytest.raises(UnexpectedModelCall):
         await client.complete(make_request("request-3"))
     assert client.completion_requests[-1].request_id == "request-3"
+
+
+async def test_runtime_attempt_is_recorded_without_breaking_request_log() -> None:
+    request = make_request("request-1")
+    expected = response(
+        request.request_id,
+        ResponseOutcome.COMPLETED,
+        TextOutput("done"),
+    )
+    attempt = ModelAttempt(number=2, deadline=Deadline(10))
+    client = ScriptedModelClient(
+        completions=(expected,),
+        streams=(StreamScript(()),),
+    )
+
+    assert await client.complete(request, attempt=attempt) is expected
+    client.stream(request, attempt=attempt)
+
+    assert client.completion_requests == (request,)
+    assert client.stream_requests == (request,)
+    assert client.completion_calls[0].attempt is attempt
+    assert client.stream_calls[0].attempt is attempt
 
 
 async def test_request_id_mismatch_is_a_protocol_error() -> None:

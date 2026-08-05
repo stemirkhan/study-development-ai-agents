@@ -10,6 +10,7 @@ from typing import TypeAlias
 
 from .contracts import (
     JsonSchemaFormat,
+    ModelAttempt,
     ModelClientError,
     ModelEvent,
     ModelProtocolError,
@@ -38,6 +39,12 @@ class ScriptedFailure:
 
 
 CompletionScript: TypeAlias = ModelResponse | ScriptedFailure
+
+
+@dataclass(frozen=True, slots=True)
+class RecordedModelCall:
+    request: ModelRequest
+    attempt: ModelAttempt | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,20 +83,33 @@ class ScriptedModelClient:
     ) -> None:
         self._completions = deque(completions)
         self._streams = deque(streams)
-        self._completion_requests: list[ModelRequest] = []
-        self._stream_requests: list[ModelRequest] = []
+        self._completion_calls: list[RecordedModelCall] = []
+        self._stream_calls: list[RecordedModelCall] = []
         self._structured_validator = structured_validator
 
     @property
     def completion_requests(self) -> tuple[ModelRequest, ...]:
-        return tuple(self._completion_requests)
+        return tuple(call.request for call in self._completion_calls)
 
     @property
     def stream_requests(self) -> tuple[ModelRequest, ...]:
-        return tuple(self._stream_requests)
+        return tuple(call.request for call in self._stream_calls)
 
-    async def complete(self, request: ModelRequest) -> ModelResponse:
-        self._completion_requests.append(request)
+    @property
+    def completion_calls(self) -> tuple[RecordedModelCall, ...]:
+        return tuple(self._completion_calls)
+
+    @property
+    def stream_calls(self) -> tuple[RecordedModelCall, ...]:
+        return tuple(self._stream_calls)
+
+    async def complete(
+        self,
+        request: ModelRequest,
+        *,
+        attempt: ModelAttempt | None = None,
+    ) -> ModelResponse:
+        self._completion_calls.append(RecordedModelCall(request, attempt))
         if not self._completions:
             raise UnexpectedModelCall("no scripted completion remains")
         scripted = self._completions.popleft()
@@ -98,8 +118,13 @@ class ScriptedModelClient:
         self._validate_response(request, scripted)
         return scripted
 
-    def stream(self, request: ModelRequest) -> AsyncIterator[ModelEvent]:
-        self._stream_requests.append(request)
+    def stream(
+        self,
+        request: ModelRequest,
+        *,
+        attempt: ModelAttempt | None = None,
+    ) -> AsyncIterator[ModelEvent]:
+        self._stream_calls.append(RecordedModelCall(request, attempt))
         if not self._streams:
             raise UnexpectedModelCall("no scripted stream remains")
         script = self._streams.popleft()

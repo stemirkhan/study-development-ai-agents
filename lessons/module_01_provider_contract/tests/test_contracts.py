@@ -6,11 +6,13 @@ from types import MappingProxyType
 import pytest
 
 from lessons.module_01_provider_contract.implementation.contracts import (
+    Deadline,
     InputMessage,
     JsonValue,
     JsonSchemaFormat,
     MessageRole,
     ModelRateLimited,
+    ModelAttempt,
     ModelRequest,
     ModelResponse,
     ProviderPayload,
@@ -53,6 +55,23 @@ def test_request_and_json_values_are_deeply_immutable() -> None:
     assert "tags" in format_properties
     with pytest.raises(TypeError):
         tool_properties["new"] = True  # type: ignore[index]
+
+
+def test_deadline_and_attempt_are_validated_runtime_controls() -> None:
+    deadline = Deadline(10)
+    attempt = ModelAttempt(number=2, deadline=deadline)
+
+    assert deadline.at == 10.0
+    assert attempt.deadline is deadline
+    assert attempt.number == 2
+
+    for invalid in (True, float("nan"), float("inf"), "10"):
+        with pytest.raises(ValueError):
+            Deadline(invalid)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="positive integer"):
+        ModelAttempt(number=0, deadline=deadline)
+    with pytest.raises(TypeError, match="Deadline"):
+        ModelAttempt(number=1, deadline=10)  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize("value", [float("nan"), float("inf"), {1: "bad"}])

@@ -181,6 +181,40 @@ class ModelRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class Deadline:
+    """Absolute deadline measured by one monotonic clock."""
+
+    at: float
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.at, bool)
+            or not isinstance(self.at, (int, float))
+            or not math.isfinite(self.at)
+        ):
+            raise ValueError("deadline must be a finite number")
+        object.__setattr__(self, "at", float(self.at))
+
+
+@dataclass(frozen=True, slots=True)
+class ModelAttempt:
+    """Runtime controls for exactly one provider attempt."""
+
+    number: int
+    deadline: Deadline
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.number, int)
+            or isinstance(self.number, bool)
+            or self.number < 1
+        ):
+            raise ValueError("attempt number must be a positive integer")
+        if not isinstance(self.deadline, Deadline):
+            raise TypeError("attempt deadline must be a Deadline")
+
+
+@dataclass(frozen=True, slots=True)
 class TextOutput:
     text: str
     provider_payload: ProviderPayload | None = field(
@@ -520,8 +554,37 @@ class ModelRateLimited(ProviderModelError):
         )
 
 
+class TimeoutPhase(str, Enum):
+    BEFORE_STREAM = "before_stream"
+    STREAM_READ = "stream_read"
+    RETRY_WAIT = "retry_wait"
+
+
 class ModelTimeout(ProviderModelError):
-    pass
+    def __init__(
+        self,
+        message: str,
+        *,
+        phase: TimeoutPhase | None = None,
+        application_request_id: str | None = None,
+        provider: str | None = None,
+        provider_request_id: str | None = None,
+        status_code: int | None = None,
+        provider_payloads: tuple[ProviderPayload, ...] = (),
+        cause: Exception | None = None,
+    ) -> None:
+        if phase is not None and not isinstance(phase, TimeoutPhase):
+            raise TypeError("timeout phase must be a TimeoutPhase")
+        self.phase = phase
+        super().__init__(
+            message,
+            application_request_id=application_request_id,
+            provider=provider,
+            provider_request_id=provider_request_id,
+            status_code=status_code,
+            provider_payloads=provider_payloads,
+            cause=cause,
+        )
 
 
 class ModelTransportError(ProviderModelError):
@@ -572,8 +635,18 @@ class UnexpectedModelCall(ModelClientError):
 
 
 class ModelClient(Protocol):
-    async def complete(self, request: ModelRequest) -> ModelResponse:
+    async def complete(
+        self,
+        request: ModelRequest,
+        *,
+        attempt: ModelAttempt | None = None,
+    ) -> ModelResponse:
         """Perform exactly one non-streaming model exchange."""
 
-    def stream(self, request: ModelRequest) -> AsyncIterator[ModelEvent]:
+    def stream(
+        self,
+        request: ModelRequest,
+        *,
+        attempt: ModelAttempt | None = None,
+    ) -> AsyncIterator[ModelEvent]:
         """Perform exactly one streaming model exchange."""

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterable, AsyncIterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .contracts import (
     ModelClientError,
@@ -31,6 +31,11 @@ from .contracts import (
 class CollectedStream:
     response: ModelResponse
     events: tuple[ModelEvent, ...]
+    cleanup_error: BaseException | None = field(
+        default=None,
+        compare=False,
+        repr=False,
+    )
 
 
 @dataclass(slots=True)
@@ -43,6 +48,24 @@ class _ToolAccumulator:
 async def collect_stream(source: AsyncIterable[ModelEvent]) -> CollectedStream:
     """Collect one stream only after proving its common lifecycle."""
 
+    iterator = aiter(source)
+    try:
+        return await _collect_stream(iterator)
+    except BaseException as failure:
+        cleanup_error = await _close_preserving_failure(iterator)
+        if cleanup_error is not None:
+            failure.add_note(
+                "stream cleanup also failed: "
+                f"{type(cleanup_error).__name__}: {cleanup_error}"
+            )
+        raise
+
+
+async def _collect_stream(
+    iterator: AsyncIterator[ModelEvent],
+) -> CollectedStream:
+    """Validate events from an already owned iterator."""
+
     events: list[ModelEvent] = []
     started: ResponseStarted | None = None
     terminal: ResponseCompleted | None = None
@@ -51,7 +74,6 @@ async def collect_stream(source: AsyncIterable[ModelEvent]) -> CollectedStream:
     tool_parts: dict[int, _ToolAccumulator] = {}
     reported_usage: Usage | None = None
 
-    iterator = aiter(source)
     while True:
         event = await _next_event(iterator, events)
         if event is None:
@@ -61,11 +83,6 @@ async def collect_stream(source: AsyncIterable[ModelEvent]) -> CollectedStream:
             raise _protocol_error(
                 f"expected event sequence {expected_sequence}, "
                 f"got {event.sequence}",
-                event=event,
-            )
-        if terminal is not None:
-            raise _protocol_error(
-                "an event followed the terminal response",
                 event=event,
             )
         if started is None and not isinstance(event, ResponseStarted):
@@ -162,17 +179,23 @@ async def collect_stream(source: AsyncIterable[ModelEvent]) -> CollectedStream:
             terminal = event
         events.append(event)
 
-    if terminal is None:
-        if events:
-            last_event = events[-1]
-            cause = ModelProtocolError(
-                "stream ended without a terminal response",
-                provider=last_event.provider_payload.provider,
-                provider_payloads=(last_event.provider_payload,),
+        if terminal is not None:
+            cleanup_error = await _close_after_terminal(iterator)
+            return CollectedStream(
+                response=terminal.response,
+                events=tuple(events),
+                cleanup_error=cleanup_error,
             )
-            raise ModelStreamInterrupted(tuple(events), cause) from cause
-        raise ModelProtocolError("stream ended without a terminal response")
-    return CollectedStream(response=terminal.response, events=tuple(events))
+
+    if events:
+        last_event = events[-1]
+        cause = ModelProtocolError(
+            "stream ended without a terminal response",
+            provider=last_event.provider_payload.provider,
+            provider_payloads=(last_event.provider_payload,),
+        )
+        raise ModelStreamInterrupted(tuple(events), cause) from cause
+    raise ModelProtocolError("stream ended without a terminal response")
 
 
 async def _next_event(
@@ -209,6 +232,46 @@ def _same_event_objects(
             strict=True,
         )
     )
+
+
+async def _close_after_terminal(
+    iterator: AsyncIterator[ModelEvent],
+) -> BaseException | None:
+    """Let an already validated terminal result win over cleanup failures."""
+
+    close = getattr(iterator, "aclose", None)
+    if close is None:
+        return None
+
+    close_task = asyncio.ensure_future(close())
+    try:
+        await asyncio.shield(close_task)
+    except asyncio.CancelledError as cancellation:
+        current = asyncio.current_task()
+        if current is not None and current.cancelling():
+            current.uncancel()
+            if not close_task.done():
+                close_task.cancel()
+            await asyncio.gather(close_task, return_exceptions=True)
+        return cancellation
+    except Exception as error:
+        return error
+    return None
+
+
+async def _close_preserving_failure(
+    iterator: AsyncIterator[ModelEvent],
+) -> BaseException | None:
+    """Attempt cleanup without replacing the failure that caused it."""
+
+    close = getattr(iterator, "aclose", None)
+    if close is None:
+        return None
+    try:
+        await close()
+    except BaseException as cleanup_error:
+        return cleanup_error
+    return None
 
 
 def _require_open_output(
