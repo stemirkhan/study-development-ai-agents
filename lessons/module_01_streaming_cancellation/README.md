@@ -81,6 +81,10 @@ lessons/module_01_streaming_cancellation/
 - истечение срока или отмена во время очистки после уже проверенного
   `ResponseCompleted` не отменяет готовый ответ; проблема очистки сохраняется
   отдельно.
+- даже syntactically complete `ToolArgumentsDelta` после обрыва не создаёт
+  `ToolCallOutput`, не запускает `reserve_inventory` и не вызывает hidden
+  retry; положительный control выдаёт tool authority только после проверенного
+  `ResponseCompleted` нового request.
 
 ## Запуск
 

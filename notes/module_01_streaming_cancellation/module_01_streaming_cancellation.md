@@ -3,7 +3,7 @@ title: "Потоковый ответ и отмена"
 module: "01"
 topic: "streaming_cancellation"
 status: complete
-updated: "2026-08-02"
+updated: "2026-08-12"
 tags:
   - ai-agent-engineering
   - module-01
@@ -90,13 +90,15 @@ Transport может уже передать десятки chunks, пока sem
 Оба механизма могут технически отменить ожидающую coroutine, но выражают
 разный intent:
 
-- внешний `CancelledError` означает «caller больше не ждёт»; adapter закрывает
-  источник в `finally`, пробрасывает cancellation и не делает hidden retry;
-- истёкший `deadline` означает «общий time budget исчерпан»; boundary
-  классифицирует исход как `ModelTimeout` и сохраняет phase/prefix для
-  решения runtime;
-- если timeout случился после events, итог остаётся interrupted prefix, а не
-  completed response.
+- внешний `CancelledError` означает «caller больше не ждёт»; runtime отменяет
+  active read и deadline waiter, закрывает source, после чего cleanup adapter
+  generator выполняется в `finally`. Cancellation проходит наверх без hidden
+  retry;
+- истёкший `deadline` до первого event либо во время retry wait даёт
+  `ModelTimeout` с конкретной phase;
+- истёкший `deadline` после provisional events, но до validated
+  `ResponseCompleted`, даёт `ModelStreamInterrupted(events,
+  cause=ModelTimeout)`, а не completed response.
 
 Deadline должен передаваться как абсолютное значение, измеренное monotonic
 clock. Иначе transport, чтение stream и каждый retry получают полный timeout
@@ -104,8 +106,11 @@ clock. Иначе transport, чтение stream и каждый retry полу�
 
 В Python 3.13 `asyncio.timeout_at(deadline)` использует абсолютное время event
 loop. Контекст применяет cancellation внутри и преобразует именно своё
-истечение в `TimeoutError` снаружи; обычный `CancelledError` нельзя поглощать,
-иначе ломаются cleanup и structured concurrency.
+истечение в `TimeoutError` снаружи. До terminal commit обычный
+`CancelledError` нельзя поглощать, иначе ломаются cleanup и structured
+concurrency. После validated `ResponseCompleted` текущая policy делает узкое
+исключение: завершает cleanup, возвращает committed response и сохраняет
+cancellation как `cleanup_error`.
 
 ### `429` и `Retry-After`
 
@@ -124,9 +129,10 @@ Runtime может повторить exchange, только если однов
 
 Adapter должен вернуть typed `ModelRateLimited(retry_after_s=...)`, а решение
 об ожидании оставить orchestration layer. При отсутствующем или invalid
-`Retry-After` runtime применяет bounded backoff с jitter; если server hint
-длиннее оставшегося deadline, корректный исход — timeout, а не ожидание сверх
-budget.
+`Retry-After` production runtime обычно применяет bounded backoff с jitter. В
+детерминированной практике используется явная fallback delay без jitter; если
+server hint или fallback delay не помещаются в оставшийся deadline, корректный
+исход — timeout, а не ожидание сверх budget.
 
 ### Что означает безопасный retry
 
@@ -155,9 +161,11 @@ new stream создаёт текст, которого не выдавал ни 
 - `OutputCompleted` → output целостен, но весь response ещё не terminal →
   runtime продолжает ждать → параллельные outputs и usage не теряются.
 - `ResponseCompleted` → появляется committed `ModelResponse` → Agent может
-  принять следующее решение или передать завершённый `tool call` executor.
-- Cancellation/deadline/interruption → committed response отсутствует → retry
-  решает runtime по общей policy → adapter не скрывает новый model decision.
+  принять следующее решение или передать завершённый `tool call` на отдельные
+  schema, allowlist и authorization checks перед executor.
+- Cancellation/deadline/interruption до validated `ResponseCompleted` →
+  committed response отсутствует → retry решает runtime по общей policy →
+  adapter не скрывает новый model decision.
 
 ## Примеры
 
@@ -182,65 +190,100 @@ state.commit(collected.response)  # only after lifecycle validation
 
 ### Один абсолютный deadline
 
-Ниже — sketch целевого orchestration, а не уже реализованный interface темы
-1.2:
+В практике эту границу реализует `StreamingRuntime`: один объект `Deadline`
+передаётся каждой видимой попытке, ограничивает чтение stream и ожидание перед
+retry.
 
 ```python
-async def collect_before(client, request, *, deadline):
-    try:
-        async with asyncio.timeout_at(deadline):
-            return await collect_stream(client.stream(request))
-    except asyncio.CancelledError:
-        raise  # caller intent must survive unchanged
-    except TimeoutError as exc:
-        raise ModelTimeout("stream deadline expired", cause=exc) from exc
+deadline = Deadline(clock.now() + 10)
+result = await StreamingRuntime(time=clock).collect(
+    client,
+    request,
+    deadline=deadline,
+)
 ```
 
-В практике контракт будет расширен так, чтобы deadline доходил до adapter и
-transport, а timeout после prefix сохранял наблюдённые events. Одной внешней
-обёртки недостаточно, если нижний transport продолжает работу или hidden
-retry.
+Сам `Deadline` относится к одной monotonic time domain. Передавать его как
+обычный timestamp между процессами нельзя: после durable restart нужно
+сохранять переносимое wall-clock значение или оставшийся budget и строить
+новый local monotonic deadline.
 
 ## Заметки и наблюдения
 
-### Что уже доказано темой 1.2
+### Что доказано практикой 1.3
 
-- [`collect_stream`](../../lessons/module_01_provider_contract/implementation/stream_assembly.py)
-  проверяет start, непрерывный sequence, output completion и единственный
-  terminal response.
-- Ошибка source типа `ModelClientError` после events сохраняется как
-  `ModelStreamInterrupted(events, cause)`; clean EOF после prefix также не
-  становится успехом. Произвольные исключения source этим контрактом пока не
-  нормализуются.
-- `CancelledError` проходит без wrapping; тест с blocked read подтверждает
-  выполнение cleanup источника.
-- Контракт уже различает `ModelRateLimited.retry_after_s`,
-  `ResponseOutcome.TRUNCATED` и `usage=None`.
+- [`StreamingRuntime`](../../lessons/module_01_streaming_cancellation/implementation/execution.py)
+  создаёт `ModelAttempt`, передаёт один absolute `Deadline` каждой попытке и
+  ограничивает им чтение stream и retry wait.
+- Caller cancellation доходит до заблокированного source как
+  `CancelledError`: source закрывается, deadline waiter удаляется, новая
+  попытка не открывается.
+- Transport failure или deadline после принятых events возвращаются как
+  `ModelStreamInterrupted` с точными event objects и исходной причиной. Ни
+  `ModelResponse`, ни синтетический terminal event не создаются.
+- Bare `ModelRateLimited` до первого event допускает bounded retry. После
+  первого event та же ошибка становится причиной `ModelStreamInterrupted`,
+  поэтому runtime не склеивает две генерации.
+- `ResponseOutcome.TRUNCATED` остаётся terminal response, а отсутствующий
+  usage сохраняется как `None`.
+- После validated `ResponseCompleted` ошибка или cancellation во время cleanup
+  записывается в `cleanup_error` и не отменяет committed response.
 
-### Чего текущая реализация пока не доказывает
+Две наблюдаемые трассы находятся в
+[`demo.py`](../../lessons/module_01_streaming_cancellation/implementation/demo.py),
+а fault matrix — в
+[`test_execution.py`](../../lessons/module_01_streaming_cancellation/tests/test_execution.py).
 
-- `ModelClient` ещё не принимает deadline или execution context; transport и
-  retry wait не делят один временной budget.
-- Нет fake clock, delayed events и fault tests для timeout до/после prefix,
-  `429`, terminal `TRUNCATED` и streaming response без usage.
-- Локальное закрытие async generator не доказывает remote cancellation,
-  остановку provider compute или отсутствие billing.
-- При caller cancellation prefix пока не возвращается из `collect_stream`;
-  для аудита events нужен отдельный sink/checkpoint до точки отмены.
-- Protocol error, обнаруженный самим collector после уже принятых events, не
-  всегда упакован в `ModelStreamInterrupted`; эту границу нужно унифицировать.
-- `collect_stream` буферизует все events и chunks; bounded memory и
-  end-to-end backpressure ещё не измерены.
-- Общего механизма resume с последнего delta нет. Повтор начинает новый
-  exchange, а `request_id` обеспечивает correlation, но не idempotency.
+### Итог инженерной защиты: tool authority
+
+Сценарий защиты использует syntactically complete
+`ToolArgumentsDelta('{"sku":"sku-42","quantity":2}')`, после которого
+transport обрывается до `OutputCompleted` и `ResponseCompleted`. Выбранная
+policy:
+
+1. Agent остаётся в состоянии ожидания подтверждённого решения; prefix — это
+   draft, а не `ToolCallOutput`.
+2. Runtime возвращает `ModelStreamInterrupted` без hidden retry.
+3. Application может предложить отмену или отдельную новую генерацию после
+   решения пользователя. «Подтвердить вручную» не означает исполнить JSON из
+   prefix: отдельная команда должна снова пройти schema validation и проверку
+   полномочий.
+4. Только `ToolCallOutput` из одного validated `ResponseCompleted` может стать
+   кандидатом на authority для `reserve_inventory`; затем обязательны schema,
+   allowlist и authorization checks. Events разных attempts не объединяются.
+
+Falsification test
+`test_complete_tool_arguments_interruption_never_retries_or_authorizes_tool`
+проверяет отрицательный и положительный control. В interrupted branch полный
+JSON сохраняется как event, attempt остаётся один, а spy tool не вызывается. В
+отдельном новом request последовательность `OutputCompleted` →
+`ResponseCompleted` делает call eligible для test policy, которая разрешает
+ровно один вызов spy tool. Это доказывает terminal boundary, но не заменяет
+полную production authorization policy.
+
+### Ограничения текущего доказательства
+
+- `ControlledStreamingClient` и `ManualTime` доказывают локальный control flow,
+  но не remote cancellation, остановку provider compute или отсутствие
+  billing после закрытия соединения.
+- Здесь нет реального HTTP/SSE adapter, durable checkpoint/replay после
+  process crash и отдельного cost budget.
+- Fallback delay детерминирована и не моделирует jitter либо contention между
+  несколькими workers.
+- `collect_stream` сохраняет все events и chunks в памяти; bounded buffering и
+  end-to-end backpressure не измерены.
+- Caller cancellation проходит наружу без prefix. Для audit trail events нужно
+  писать в отдельный sink до terminal commit.
+- Общего resume protocol нет. Новый request начинает новый model exchange, а
+  correlation ID сам по себе не даёт idempotency.
 
 ### Гонки на terminal boundary
 
-Cancellation может прийти почти одновременно с terminal event. Runtime нужна
-одна атомарная точка commit: если validated `ResponseCompleted` уже
-зафиксирован, response terminal; если раньше зафиксирована cancellation,
-успех не синтезируется задним числом. Реализация и тест этой гонки относятся к
-практической фазе.
+Тесты фиксируют две стороны границы. Если deadline и ещё не принятый terminal
+event становятся ready в одном event-loop turn, побеждает deadline и terminal
+response не синтезируется. Если `ResponseCompleted` уже validated, а deadline
+или cancellation приходят во время cleanup, побеждает committed response;
+проблема cleanup остаётся наблюдаемой через `cleanup_error`.
 
 ## Вопросы для повторения
 
@@ -262,25 +305,29 @@ Streaming уменьшает time to first visible token, но усложняе�
 Observed prefix принадлежит provisional state; только validated terminal event
 создаёт `ModelResponse`. Cancellation сохраняет intent caller, deadline
 ограничивает всю операцию, а interruption сохраняет неоднозначный prefix.
-Retry остаётся явным решением runtime с общими time/attempt/cost budgets и не
-маскируется под продолжение потока.
+Retry остаётся явным решением runtime с общими time/attempt budgets и не
+маскируется под продолжение потока. Отдельный cost budget в практике не
+реализован и остаётся обязанностью upper layer.
 
-После команды `к практике` мы расширим собственный adapter без framework:
-передадим deadline и cancellation до source, добавим deterministic clock и
-fault cases для interruption, `429`, token limit и missing usage, затем
-разберём успешную cancellation и неоднозначный partial response.
+Практика завершена без framework: реализованы deadline-aware stream runtime,
+deterministic clock и fault cases для interruption, cancellation, `429`, token
+limit, missing usage и terminal cleanup. Карта запуска и ограничения собраны в
+[`README`](../../lessons/module_01_streaming_cancellation/README.md).
 
 ## Источники
 
-Изменчивые детали Python проверены `2026-08-02` для Python `3.13.14`; HTTP
-семантика сверена по RFC в ту же дату:
+Изменчивые детали Python и HTTP semantics проверены по primary sources
+`2026-08-02`; локальная практика повторно запущена `2026-08-12` на Python
+`3.13.13`:
 
 - [Python 3.13: task cancellation](https://docs.python.org/3.13/library/asyncio-task.html#task-cancellation)
 - [Python 3.13: timeouts and `asyncio.timeout_at`](https://docs.python.org/3.13/library/asyncio-task.html#timeouts)
 - [RFC 6585: `429 Too Many Requests`](https://www.rfc-editor.org/rfc/rfc6585.html#section-4)
 - [RFC 9110: `Retry-After`](https://www.rfc-editor.org/rfc/rfc9110.html#section-10.2.3)
 - [Основной план: промпт 1.3](../../docs/senior_ai_agent_engineer_2026.md#промпт-13-потоковый-ответ-и-отмена)
-- [Контракты `ModelEvent`, outcomes и errors](../../lessons/module_01_provider_contract/implementation/contracts.py)
-- [Текущий stream assembler](../../lessons/module_01_provider_contract/implementation/stream_assembly.py)
-- [Deterministic stream tests](../../lessons/module_01_provider_contract/tests/test_stream_assembly.py)
-- [Конспект 1.2: provider-neutral contract](../module_01_provider_contract/module_01_provider_contract.md)
+- Локальные материалы: [contracts](../../lessons/module_01_provider_contract/implementation/contracts.py),
+  [stream assembler](../../lessons/module_01_provider_contract/implementation/stream_assembly.py),
+  [runtime](../../lessons/module_01_streaming_cancellation/implementation/execution.py),
+  [tests](../../lessons/module_01_streaming_cancellation/tests/test_execution.py),
+  [README](../../lessons/module_01_streaming_cancellation/README.md) и
+  [конспект 1.2](../module_01_provider_contract/module_01_provider_contract.md)
