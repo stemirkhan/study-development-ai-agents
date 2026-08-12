@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="lesson-diagram-template" content="study-sketch-v1">
-    <title>Streaming lifecycle preserves a partial prefix until terminal completion</title>
+    <title>Незавершённый поток не становится подтверждённым ответом</title>
     <link
       rel="stylesheet"
       data-lesson-diagram-style
@@ -17,101 +17,101 @@
       aria-labelledby="diagram-title"
       data-render-state="pending"
     >
-      <h1 id="diagram-title" class="visually-hidden">Streaming lifecycle preserves a partial prefix until terminal completion</h1>
+      <h1 id="diagram-title" class="visually-hidden">Незавершённый поток не становится подтверждённым ответом</h1>
       <script id="diagram-data" type="application/json">
         {
-          "title": "Streaming lifecycle preserves a partial prefix until terminal completion",
+          "title": "Незавершённый поток не становится подтверждённым ответом",
           "width": 1200,
           "height": 1100,
           "direction": "left-right",
           "nodes": [
             {
               "id": "request",
-              "label": "Model request\nabsolute deadline",
+              "label": "Запрос к модели\nодин крайний срок",
               "rank": 0,
               "order": 0,
               "kind": "default"
             },
             {
               "id": "started",
-              "label": "Response\nstarted",
+              "label": "Ответ\nначат",
               "rank": 1,
               "order": 0,
               "kind": "info"
             },
             {
               "id": "prefix",
-              "label": "Text / tool deltas\nprovisional prefix",
+              "label": "Фрагменты текста и\nаргументов инструмента",
               "rank": 2,
               "order": 0,
               "kind": "accent"
             },
             {
               "id": "output-complete",
-              "label": "Output complete\nusage optional",
+              "label": "Результат завершён\nсведения необязательны",
               "rank": 3,
               "order": 0,
               "kind": "info"
             },
             {
               "id": "cancel",
-              "label": "Caller\ncancellation",
+              "label": "Отмена\nинициатором",
               "rank": 3,
               "order": 1,
               "kind": "danger"
             },
             {
               "id": "deadline",
-              "label": "Deadline\nexpired",
+              "label": "Крайний срок\nистёк",
               "rank": 3,
               "order": 2,
               "kind": "danger"
             },
             {
               "id": "interrupt",
-              "label": "EOF / transport error",
+              "label": "Конец соединения /\nтранспортный сбой",
               "rank": 3,
               "order": 3,
               "kind": "danger"
             },
             {
               "id": "terminal",
-              "label": "Terminal\nresponse",
+              "label": "Ответ\nподтверждён",
               "rank": 4,
               "order": 0,
               "kind": "success"
             },
             {
               "id": "cancelled",
-              "label": "Cleanup\npropagate cancellation",
+              "label": "Освободить ресурсы\nпередать отмену",
               "rank": 4,
               "order": 1,
               "kind": "danger"
             },
             {
               "id": "timed-out",
-              "label": "Interrupted prefix\ncause: ModelTimeout",
+              "label": "Поток оборван\nпричина: ModelTimeout",
               "rank": 4,
               "order": 2,
               "kind": "danger"
             },
             {
               "id": "partial",
-              "label": "Interrupted\nexact prefix",
+              "label": "Поток оборван\nсобытия сохранены",
               "rank": 4,
               "order": 3,
               "kind": "danger"
             },
             {
               "id": "commit",
-              "label": "Commit response\nthen check tool authority",
+              "label": "Зафиксировать ответ\nпроверить полномочия",
               "rank": 5,
               "order": 0,
               "kind": "success"
             },
             {
               "id": "policy",
-              "label": "No success\nupper layer decides",
+              "label": "Успеха нет\nрешает вызывающий слой",
               "rank": 5,
               "order": 1,
               "kind": "default"
@@ -120,13 +120,11 @@
           "edges": [
             {
               "from": "request",
-              "to": "started",
-              "label": "open"
+              "to": "started"
             },
             {
               "from": "started",
-              "to": "prefix",
-              "label": "events"
+              "to": "prefix"
             },
             {
               "from": "prefix",
@@ -138,8 +136,7 @@
             },
             {
               "from": "terminal",
-              "to": "commit",
-              "label": "commit"
+              "to": "commit"
             },
             {
               "from": "prefix",

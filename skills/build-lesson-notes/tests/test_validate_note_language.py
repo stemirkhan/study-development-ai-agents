@@ -14,7 +14,7 @@ from diagram_support import (
     png_pixel_fingerprint,
 )
 from test_diagram_support import tiny_png, write_diagram
-from validate_note import validate
+from validate_note import parse_frontmatter, split_frontmatter, validate
 
 
 def note_text(*, status: str, content: str) -> str:
@@ -98,13 +98,20 @@ def test_exact_identifiers_products_and_urls_are_allowed() -> None:
     text = note_text(
         status="complete",
         content="""
-Маршрутизатор возвращает `NoCompatibleRoute`, а затем Agent обрабатывает
+Маршрутизатор возвращает `NoCompatibleRoute`, а затем агент обрабатывает
 `ResponseCompleted`. Названия OpenAI Responses, Structured Outputs,
 OpenAI Realtime и JSON Schema сохранены точно.
 [Документация](https://example.com/fallback-route/streaming)
+Точные имена `LLM Agent tool tool call prompt context model response
+UI prefix history assistant message terminal response
+committed provisional cancellation cleanup runtime adapter source consumer chunk
+attempt intent timeout backpressure` остаются кодом.
 
 ```text
-fallback route latency side effect
+LLM Agent tool tool call prompt context model response fallback route latency
+side effect UI prefix history assistant message
+terminal response committed provisional cancellation cleanup runtime adapter
+source consumer chunk attempt intent timeout backpressure
 ```
 """,
     )
@@ -189,4 +196,125 @@ def test_language_guard_checks_diagram_labels(tmp_path: Path) -> None:
         "англицизмы в подписях схемы" in item
         and "fallback → «резервный маршрут или переключение»" in item
         for item in findings.errors
+    )
+
+
+def test_language_guard_covers_common_explanatory_anglicisms() -> None:
+    expected = {
+        "LLM": "языковая модель",
+        "Agent": "агент",
+        "tool call": "вызов инструмента",
+        "tool": "инструмент",
+        "prompt": "инструкция или запрос",
+        "context": "контекст",
+        "model": "модель",
+        "response": "ответ",
+        "SDK": "набор разработчика",
+        "UI": "интерфейс",
+        "prefix": "начальный фрагмент",
+        "history": "история",
+        "assistant message": "сообщение ассистента",
+        "terminal response": "завершённый ответ",
+        "committed": "подтверждённый",
+        "provisional": "предварительный",
+        "cancellation": "отмена",
+        "cleanup": "освобождение ресурсов",
+        "runtime": "среда выполнения",
+        "adapter": "адаптер",
+        "source": "источник",
+        "consumer": "потребитель",
+        "chunk": "фрагмент",
+        "attempt": "попытка",
+        "intent": "намерение",
+        "timeout": "истечение времени ожидания",
+        "backpressure": "обратное давление",
+    }
+    text = note_text(
+        status="complete",
+        content=" ".join(expected),
+    )
+
+    findings = validate(text)
+
+    message = "\n".join(findings.errors)
+    for term, replacement in expected.items():
+        assert f"{term} → «{replacement}»" in message
+
+
+def test_complete_note_rejects_unknown_latin_prose() -> None:
+    text = note_text(
+        status="complete",
+        content="Pipeline обрабатывает payload.",
+    )
+
+    findings = validate(text)
+
+    message = "\n".join(findings.errors)
+    assert "неразрешённая латиница → payload, Pipeline" in message
+
+
+def test_rejects_the_mixed_streaming_sentence_regression() -> None:
+    text = note_text(
+        status="complete",
+        content=(
+            "UI может показать незавершённый prefix, но history Agent не "
+            "получает обычный assistant message. Если terminal response имеет "
+            "особый исход, state сохраняет его."
+        ),
+    )
+
+    findings = validate(text)
+
+    message = "\n".join(findings.errors)
+    for term in (
+        "UI",
+        "prefix",
+        "history",
+        "Agent",
+        "assistant message",
+        "terminal response",
+        "state",
+    ):
+        assert f"{term} →" in message
+
+
+def test_known_products_standards_and_identifiers_are_allowed() -> None:
+    text = note_text(
+        status="complete",
+        content="""
+OpenAI Responses, OpenAI Realtime, OpenAI Models API, Anthropic Messages API,
+Anthropic Models API, Gemini Models API, Gemini API, Google Gemini,
+Interactions API, JSON Schema, Python, HTTP, SSE, RFC и `inline_name`.
+""",
+    )
+
+    findings = validate(text)
+
+    assert findings.errors == []
+    assert findings.warnings == []
+
+
+def test_all_complete_lesson_notes_pass_validation() -> None:
+    repository = Path(__file__).resolve().parents[3]
+    notes = sorted(repository.glob("notes/module_*/*.md"))
+    complete_notes: list[Path] = []
+    failures: list[str] = []
+
+    for path in notes:
+        text = path.read_text(encoding="utf-8")
+        frontmatter, _ = split_frontmatter(text)
+        values, _ = parse_frontmatter(frontmatter)
+        if values.get("status") != "complete":
+            continue
+        complete_notes.append(path)
+        findings = validate(text, path)
+        if findings.errors:
+            relative = path.relative_to(repository)
+            details = "\n".join(f"    - {error}" for error in findings.errors)
+            failures.append(f"  {relative}:\n{details}")
+
+    assert complete_notes, "не найдено ни одного завершённого конспекта"
+    assert not failures, (
+        "завершённые конспекты не прошли validate_note.py:\n"
+        + "\n".join(failures)
     )

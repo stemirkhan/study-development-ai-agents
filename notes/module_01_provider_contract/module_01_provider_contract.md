@@ -3,7 +3,7 @@ title: "Независимый от поставщика контракт ModelC
 module: "01"
 topic: "provider_contract"
 status: complete
-updated: "2026-08-01"
+updated: "2026-08-12"
 tags:
   - ai-agent-engineering
   - module-01
@@ -16,60 +16,62 @@ tags:
 ## Краткое содержание
 
 `ModelClient` отделяет код приложения от протокола конкретного поставщика и
-выполняет ровно одно обращение к LLM. `ModelRequest` описывает намерение
-приложения, `ModelResponse` — завершённый результат, а `ModelEvent` — одно
+выполняет ровно одно обращение к языковой модели. `ModelRequest` описывает
+намерение приложения, `ModelResponse` — завершённый результат, а `ModelEvent` — одно
 типизированное событие потокового ответа. Общий контракт должен нормализовать
-семантику, необходимую вызывающему коду, но одновременно сохранять исходные
+смысл, необходимый вызывающему коду, но одновременно сохранять исходные
 блоки, идентификаторы, порядок, причины остановки и сведения об использовании.
 Потеря неизвестного поля опаснее его временного непонимания. Практика
-закрепляет эту границу immutable-моделями, deterministic fake и проверяемым
-lifecycle потока; инженерная защита связывает честное отсутствие provider ID
-с восстановлением состояния Agent после неоднозначного side effect.
+закрепляет эту границу неизменяемыми моделями, детерминированной имитацией и
+проверяемым жизненным циклом потока; инженерная защита связывает честное
+отсутствие идентификатора поставщика с восстановлением состояния агента после
+неоднозначного побочного эффекта.
 
 ## Ключевые понятия
 
-- **`ModelClient`** — асинхронная граница одного обращения: конкретная adapter
-  implementation преобразует request и нормализует response или error. Не
-  выбирает маршрут, не поддерживает цель Agent и не выполняет `tool`.
-- **`ModelRequest`** — выражает `request_id`, model, messages, доступные `tool`
-  и требуемый response format. Не копирует HTTP request одного API и не
-  описывает routing policy.
+- **`ModelClient`** — асинхронная граница одного обращения: конкретная
+  реализация адаптера преобразует запрос и нормализует ответ либо ошибку. Не
+  выбирает маршрут, не поддерживает цель агента и не выполняет вызов
+  инструмента.
+- **`ModelRequest`** — выражает `request_id`, `model`, `messages`, доступные
+  инструменты в поле `tools` и требуемый формат ответа. Не копирует HTTP-запрос одного
+  API и не описывает политику маршрутизации.
 - **`ModelResponse`** — хранит упорядоченные результаты завершённого
-  обращения: text, structured data, `tool call`, refusal и usage. Не является
-  только строкой.
-- **`ModelEvent`** — представляет смысловой шаг потока: start, delta, output
-  completion, usage или terminal response. Частичный JSON ещё нельзя
-  исполнять.
-- **`ProviderPayload`** — хранит точные provider bytes вместе с `provider`,
-  `kind` и media type. Неизвестные расширения доступны для replay и аудита,
-  но не получают полномочий Agent.
+  обращения: текст, структурированные данные, вызов инструмента,
+  отказ и сведения об использовании. Не является только строкой.
+- **`ModelEvent`** — представляет смысловой шаг потока: начало ответа,
+  фрагмент, завершение результата, сведения об использовании или завершённый
+  ответ. Частичный JSON ещё нельзя исполнять.
+- **`ProviderPayload`** — хранит точные байты поставщика вместе с `provider`,
+  `kind` и медиа-типом. Неизвестные расширения доступны для воспроизведения и
+  аудита, но не получают полномочий агента.
 
 ## Основные идеи
 
-### Проблема: одинаковая семантика, разные формы
+### Проблема: одинаковый смысл, разные формы
 
-OpenAI Responses возвращает упорядоченные `output` Items, Anthropic Messages —
-`content` blocks и `stop_reason`, Gemini `generateContent` — `candidates` с
-`content.parts`, `finishReason` и `usageMetadata`. Во всех трёх системах может
-появиться текст, структурированный результат, `tool call`, отказ или
-ограничение длины. Но совпадение смысла не означает совпадения данных.
+OpenAI Responses возвращает упорядоченные элементы `output`, Anthropic
+Messages — блоки `content` и `stop_reason`, Gemini `generateContent` —
+`candidates` с `content.parts`, `finishReason` и `usageMetadata`. Во всех трёх
+системах может появиться текст, структурированный результат, вызов
+инструмента, отказ или ограничение длины. Но совпадение смысла не означает
+совпадения данных.
 
 Если приложение читает каждую форму напрямую, протокол поставщика проникает в
-Agent loop, тесты и бизнес-правила. Если адаптер оставляет только строку, он
-теряет `call_id`, safety-данные, citations, reasoning Items,
+цикл агента, тесты и бизнес-правила. Если адаптер оставляет только строку, он
+теряет `call_id`, данные безопасности, цитаты, элементы рассуждения,
 `thoughtSignature`, подробности кэша и новые типы блоков. Нужны одновременно
-общая форма и lossless escape hatch — доступ к исходным данным без
-переупаковки с потерями.
+общая форма и доступ к исходным данным без переупаковки с потерями.
 
 ### Один поток выполнения
 
 ```text
-application
+приложение
   -> ModelRequest
   -> ModelClient
-  -> provider adapter -> provider API
-  <- raw response или raw stream events
-  <- ModelResponse или ModelEvent stream + сохранённые provider data
+  -> адаптер поставщика -> API поставщика
+  <- исходный ответ или исходные события потока
+  <- ModelResponse или поток ModelEvent + сохранённые данные поставщика
 ```
 
 Для обычного вызова адаптер разбирает весь ответ и возвращает
@@ -80,15 +82,15 @@ application
 
 ### Что приводить к общей форме
 
-| Общая семантика | Нормализованное представление |
+| Общий смысл | Нормализованное представление |
 |---|---|
 | Текст | Упорядоченные текстовые блоки, а не только склеенная строка |
 | Структурированный ответ | Исходный JSON-текст, проверенное значение и идентификатор применённой схемы |
-| `tool call` | Optional provider call ID, имя, parsed/raw-consistent аргументы и порядок; выполнение остаётся снаружи `ModelClient` |
+| Вызов инструмента | Необязательный идентификатор вызова поставщика, имя, согласованные исходные и разобранные аргументы и порядок; выполнение остаётся снаружи `ModelClient` |
 | Сведения об использовании | Общие `input`, `output`, `total`, если поставщик их сообщил; отсутствие остаётся отсутствием |
 | Результат генерации | `completed`, `tool_requested`, `refused`, `truncated`, `blocked` или `incomplete` |
-| Поток | Начало, части блоков, завершение блоков, usage и терминальное событие |
-| Ошибка границы | Общая категория с исходной причиной, статусом, request ID и `retry_after`, если они есть |
+| Поток | Начало, части блоков, завершение блоков, сведения об использовании и завершающее событие |
+| Ошибка границы | Общая категория с исходной причиной, статусом, идентификатором запроса и `retry_after`, если они есть |
 
 Строка, похожая на JSON, не становится структурированным ответом сама по
 себе. Для этого `ModelRequest` должен потребовать схему, а адаптер — проверить
@@ -96,19 +98,21 @@ application
 
 ### Что сохранять без потерь
 
-- provider name, фактические model/version и response/request IDs;
+- имя поставщика, фактические модель и версия, идентификаторы ответа и запроса;
 - исходные блоки в исходном порядке вместе с неизвестными вариантами;
-- provider-specific stop reason, status и детали отказа;
-- citations, safety ratings и prompt feedback;
-- reasoning Items, encrypted content, opaque fingerprints и caller linkage;
+- специфичные для поставщика причина остановки, состояние и детали отказа;
+- цитаты, оценки безопасности и обратную связь по инструкции;
+- элементы рассуждения, зашифрованное содержимое, непрозрачные отпечатки и
+  связь с вызывающим кодом;
 - Gemini `thoughtSignature` и порядок частей, необходимый для продолжения;
-- детальные usage-поля: cached, cache write, reasoning, server-tool usage;
-- HTTP status, заголовки `request-id`/`retry-after` и исходное тело ошибки;
+- подробные поля учёта использования: чтение и запись кэша, рассуждение,
+  использование серверных инструментов;
+- HTTP-статус, заголовки `request-id`/`retry-after` и исходное тело ошибки;
 - типы и данные неизвестных потоковых событий.
 
 «Без потерь» означает сохранить полученные байты либо структурное дерево без
 отбрасывания полей. Преобразовать неизвестный блок в `dict`, удалить поля и
-затем сериализовать обратно — уже не lossless round trip.
+затем сериализовать обратно — уже не обратимое преобразование без потерь.
 
 ## Примеры
 
@@ -128,12 +132,14 @@ application
 }
 ```
 
-Общая форма получает `tool call` с provider `call_id`, именем и аргументами.
-Наличие ID зависит от provider; общий контракт не должен выдумывать его.
-Соответствие raw и parsed arguments проверяется отдельно от проверки
-`ToolSpec.input_schema`. Нельзя оставить только SDK helper `output_text`: Responses
-использует массив типизированных Items, где рядом могут находиться message,
-reasoning и другие блоки. Исходный Item сохраняется целиком.
+Общая форма получает вызов инструмента с `call_id` поставщика,
+именем и аргументами. Наличие идентификатора зависит от поставщика; общий
+контракт не должен выдумывать его. Соответствие исходных и разобранных
+аргументов проверяется отдельно от проверки `ToolSpec.input_schema`. Нельзя
+оставить только вспомогательное свойство набора разработчика `output_text`:
+OpenAI Responses
+использует массив типизированных элементов, где рядом могут находиться блоки
+`message`, `reasoning` и другие. Исходный элемент сохраняется целиком.
 
 ### 2. Anthropic Messages: отказ как результат
 
@@ -147,10 +153,10 @@ reasoning и другие блоки. Исходный Item сохраняетс
 }
 ```
 
-Это успешный HTTP-обмен с терминальным результатом `refused`, а не
+Это успешный HTTP-обмен с завершённым результатом `refused`, а не
 `ModelTransportError`. Общая форма сохраняет видимый текст, но
-`stop_reason` и `stop_details` нужны для политики fallback и аудита. В
-потоке эти сведения появляются позднее текста в `message_delta`.
+`stop_reason` и `stop_details` нужны для политики резервного маршрута и аудита.
+В потоке эти сведения появляются позднее текста в `message_delta`.
 
 ### 3. Gemini `generateContent`: структурированный текст и метаданные
 
@@ -175,120 +181,127 @@ reasoning и другие блоки. Исходный Item сохраняетс
 
 ### Потоковые различия
 
-- OpenAI Responses выдаёт typed SSE events, например `response.created`,
-  `response.output_text.delta`, `response.function_call_arguments.delta` и
-  `response.completed`.
-- Anthropic Messages выдаёт `message_start`, жизненный цикл каждого content
-  block, `message_delta` и `message_stop`; `input_json_delta.partial_json`
+- OpenAI Responses выдаёт типизированные события SSE, например
+  `response.created`, `response.output_text.delta`,
+  `response.function_call_arguments.delta` и `response.completed`.
+- Anthropic Messages выдаёт `message_start`, жизненный цикл каждого блока
+  `content`, `message_delta` и `message_stop`; `input_json_delta.partial_json`
   нельзя разбирать как завершённый JSON до `content_block_stop`.
 - Gemini `streamGenerateContent` возвращает последовательность
   `GenerateContentResponse`; новый Interactions API использует события
   `step.start`, `step.delta`, `step.stop` и `interaction.completed`.
 
-`ModelEvent` должен выражать общую семантику, но всегда нести исходный тип и
-данные события. Неизвестный тип передаётся как unknown provider event, а не
-молча игнорируется.
+`ModelEvent` должен выражать общий смысл, но всегда нести исходный тип и
+данные события. Неизвестный тип передаётся как неизвестное событие поставщика,
+а не молча игнорируется.
 
 ### Реализованный механизм
 
-Практика реализована без SDK и live API:
+Практика реализована без набора разработчика и реального API:
 
 - [`contracts.py`](../../lessons/module_01_provider_contract/implementation/contracts.py)
-  задаёт immutable `ModelRequest`, `ModelResponse`, output/event variants,
-  `Usage`, `ProviderPayload`, ошибки и `ModelClient` Protocol;
+  задаёт неизменяемые `ModelRequest`, `ModelResponse`, варианты результатов и
+  событий, `Usage`, `ProviderPayload`, ошибки и протокол `ModelClient`;
 - [`scripted_client.py`](../../lessons/module_01_provider_contract/implementation/scripted_client.py)
   потребляет ровно один сценарий на вызов, сверяет `request_id` и
-  `schema_id`, вызывает injected structured validator и не делает hidden
-  retry или `tool` execution;
+  `schema_id`, вызывает переданный валидатор структурированного ответа, не
+  делает скрытых повторов и не выполняет вызов инструмента;
 - [`stream_assembly.py`](../../lessons/module_01_provider_contract/implementation/stream_assembly.py)
-  проверяет sequence, provider identity, output lifecycle, delta/final
-  consistency, usage и единственный terminal response;
+  проверяет последовательность, идентичность поставщика, жизненный цикл
+  результата, согласованность фрагментов с итогом, сведения об использовании и
+  единственный завершённый ответ;
 - [`contract_suite.py`](../../lessons/module_01_provider_contract/tests/contract_suite.py)
-  фиксирует общий behavioral contract, который позже должен запускаться без
-  изменения assertions для каждой adapter implementation.
+  фиксирует общий контракт поведения, который позже должен запускаться без
+  изменения проверок для каждой реализации адаптера.
 
-Текущий module suite содержит `67` deterministic tests. Они подтверждают deep
-immutability JSON, различие `usage=None` и сообщённого нуля, сохранение raw
-bytes, structured validation, отсутствие hidden retry, cancellation
-passthrough и точный observed prefix при `ModelStreamInterrupted`. Один
-`ScriptedModelClient` ещё не доказывает корректность mapping реальных SDK.
+Текущий набор модуля содержит `67` детерминированных тестов. Они подтверждают
+глубокую неизменяемость JSON, различие `usage=None` и сообщённого нуля,
+сохранение исходных байтов, проверку структурированного ответа, отсутствие
+скрытого повтора, передачу отмены без преобразования и точный наблюдаемый
+префикс при `ModelStreamInterrupted`. Один `ScriptedModelClient` ещё не
+доказывает корректность преобразования данных реальных наборов разработчика.
 
 ## Заметки и наблюдения
 
 ### Классификация ошибок
 
-- **`UnsupportedCapability`** — требуемая capability отсутствует до request;
-  не повторять на том же маршруте, сохранить requirement.
-- **`ModelAuthenticationError`** — неверный API key или недостаточно прав; не
-  повторять без изменения configuration, сохранить status/request ID.
-- **`ModelRequestRejected`** — некорректный request; не повторять без
-  исправления, сохранить provider error code и body.
-- **`ModelRateLimited`** — rate limit или quota; только ограниченный retry с
-  `retry_after`, quota scope и request ID.
-- **`ModelUnavailable`** — перегрузка или 5xx; ограниченный retry с budget,
-  сохранить status и provider error type.
-- **`ModelTimeout`** — истёк локальный `deadline`; retry создаёт новое
-  обращение и стоимость, поэтому нужна фаза request.
-- **`ModelTransportError`** — network failure; сохранить исходное exception и
-  факт получения bytes.
-- **`ModelProtocolError`** — неизвестная или invalid response shape; обычно не
-  повторять тем же adapter, сохранить raw body/event.
-- **`ModelStreamInterrupted`** — stream оборван после events; сохранить
-  observed `ModelEvent` prefix и признак неоднозначной полноты.
-- **`CancelledError`** — внешняя cancellation; передать без wrapping и не
-  запускать hidden retry.
+- **`UnsupportedCapability`** — требуемая возможность отсутствует до запроса;
+  не повторять на том же маршруте, сохранить требование.
+- **`ModelAuthenticationError`** — неверный ключ API или недостаточно прав; не
+  повторять без изменения конфигурации, сохранить статус и идентификатор
+  запроса.
+- **`ModelRequestRejected`** — некорректный запрос; не повторять без
+  исправления, сохранить код ошибки поставщика и тело ответа.
+- **`ModelRateLimited`** — ограничение частоты или квота; допустим только
+  ограниченный повтор с `retry_after`, областью квоты и идентификатором запроса.
+- **`ModelUnavailable`** — перегрузка или 5xx; допустим ограниченный повтор с
+  общим лимитом, нужно сохранить статус и тип ошибки поставщика.
+- **`ModelTimeout`** — истёк локальный `deadline`; повтор создаёт новое
+  обращение и стоимость, поэтому нужно сохранить фазу запроса.
+- **`ModelTransportError`** — сетевой сбой; сохранить исходное исключение и
+  факт получения байтов.
+- **`ModelProtocolError`** — неизвестная или недопустимая форма ответа; обычно
+  не повторять через тот же адаптер, сохранить исходное тело или событие.
+- **`ModelStreamInterrupted`** — поток оборван после событий; сохранить
+  наблюдаемый префикс `ModelEvent` и признак неоднозначной полноты.
+- **`CancelledError`** — внешняя отмена; передать без оборачивания и не
+  запускать скрытый повтор.
 
-`refused`, `truncated`, `blocked`, `tool_requested` и остановка по
-stop sequence — терминальные результаты LLM, а не транспортные исключения.
+`refused`, `truncated`, `blocked`, `tool_requested` и завершение по заданной
+последовательности токенов — результаты языковой модели, а не транспортные
+исключения.
 Так вызывающий код может отдельно решать, показать отказ, продолжить после
-`tool`, увеличить лимит или выбрать другую LLM.
+инструмента, увеличить лимит или выбрать другую языковую модель.
 
 ### Матрица контрактных тестов
 
-Один набор поведения должен запускаться для каждой adapter implementation и
-для deterministic fake. Сейчас assertions исполняются только для
-`ScriptedModelClient`; provider mappings ниже — цель будущих adapter, а не уже
-пройденный Gate.
+Один набор поведения должен запускаться для каждой реализации адаптера и для
+детерминированной имитации. Сейчас проверки исполняются только для
+`ScriptedModelClient`; преобразования данных поставщиков ниже — цель будущих
+адаптеров, а не уже пройденный критерий темы.
 
-| Contract oracle | Целевой provider mapping | Проверенный fake case |
+| Эталон контракта | Целевое преобразование данных поставщика | Проверенный сценарий имитации |
 |---|---|---|
 | Текст и порядок блоков сохранены | OpenAI `output`; Anthropic `content[]`; Gemini `parts[]` | Упорядоченный `ModelResponse`, включая `UnknownOutput` |
-| Structured output проверен запрошенной схемой | OpenAI text format; Anthropic output format; Gemini response schema | Valid/invalid JSON, `schema_id` и injected validator |
-| `tool call` сохраняет optional ID, name, raw/parsed args | `function_call`; `tool_use`; `functionCall` | Scripted `ToolCallOutput`, включая `call_id=None` |
-| `tool` не исполняется в `ModelClient` | Любой provider adapter только нормализует proposal | У fake отсутствует executor |
-| Usage и provider details не теряются | `usage`; `usage`; `usageMetadata` | `None`, reported zero и provider-only counters |
-| Refusal/truncation остаются результатами | Provider status/block/finish reason | `ResponseOutcome` и соответствующий output variant |
-| Stream собирается в тот же semantic response | Typed events; block lifecycle; response chunks | Один scripted response в unary и streaming форме |
-| Частичный JSON не становится `tool call` | Arguments/input JSON delta | Interrupted prefix без `OutputCompleted` |
-| Unknown block/event сохраняется | Новый provider type не отбрасывается | Exact `kind` и bytes |
-| Error identity и cancellation сохраняются | Status, request ID, retry metadata и cause | Typed errors; исходный `CancelledError` |
+| Структурированный ответ проверен запрошенной схемой | Текстовый формат OpenAI; формат ответа Anthropic; схема ответа Gemini | Допустимый и недопустимый JSON, `schema_id` и переданный валидатор |
+| Вызов инструмента сохраняет необязательный идентификатор, имя, исходные и разобранные аргументы | `function_call`; `tool_use`; `functionCall` | Заданный сценарием `ToolCallOutput`, включая `call_id=None` |
+| Вызов инструмента не выполняется в `ModelClient` | Любой адаптер поставщика только нормализует предложение | У имитации отсутствует исполнитель |
+| Сведения об использовании и специфичные для поставщика подробности не теряются | `usage`; `usage`; `usageMetadata` | `None`, сообщённый ноль и специфичные для поставщика счётчики |
+| Отказ и ограничение длины остаются результатами | Состояние, блокировка и причина завершения поставщика | `ResponseOutcome` и соответствующий вариант результата |
+| Поток собирается в тот же смысловой ответ | Типизированные события, жизненный цикл блока, части ответа | Один заданный ответ в обычной и потоковой форме |
+| Частичный JSON не становится вызовом инструмента | Фрагмент аргументов или входного JSON | Оборванный префикс без `OutputCompleted` |
+| Неизвестный блок или событие сохраняется | Новый тип данных поставщика не отбрасывается | Точные `kind` и байты |
+| Идентичность ошибки и отмена сохраняются | Статус, идентификатор запроса, метаданные повтора и причина | Типизированные ошибки; исходный `CancelledError` |
 
-Контрактные тесты проверяют наблюдаемое поведение, а не классы SDK. Иначе
+Контрактные тесты проверяют наблюдаемое поведение, а не классы набора
+разработчика. Иначе
 «общий» набор фактически закрепит реализацию первого адаптера.
 
-### Инженерная защита: crash после `send_email`
+### Инженерная защита: сбой после `send_email`
 
-Provider может корректно вернуть `ToolCallOutput(call_id=None)`. Это честное
-отсутствие provider ID, а не повод генерировать значение внутри
-`ModelClient`. Для side effect приложение создаёт собственный стабильный
-`operation_id`, сохраняет proposal и состояние до вызова `tool`, а после
-crash запускает deterministic recovery без нового решения LLM:
+Поставщик может корректно вернуть `ToolCallOutput(call_id=None)`. Это честное
+отсутствие идентификатора поставщика, а не повод генерировать значение внутри
+`ModelClient`. Для побочного эффекта приложение создаёт собственный стабильный
+`operation_id`, сохраняет предложение и состояние до выполнения вызова
+инструмента, а после сбоя запускает детерминированное восстановление без нового
+решения языковой модели:
 
 ```text
-SENDING -- crash после внешней попытки --> persisted SENDING
-restart  --> EFFECT_UNKNOWN --> lookup(operation_id)
+SENDING -- сбой после внешней попытки --> сохранено SENDING
+перезапуск --> EFFECT_UNKNOWN --> сверка по operation_id
   FOUND             --> SUCCEEDED, повтор запрещён
-  TERMINALLY_ABSENT --> SENDING --> retry --> SUCCEEDED
+  TERMINALLY_ABSENT --> SENDING --> повтор --> SUCCEEDED
   UNKNOWN           --> EFFECT_UNKNOWN, автоматический повтор запрещён
 ```
 
 `TERMINALLY_ABSENT` означает доказательство, что предыдущая попытка завершена
-и не была принята. Обычное «письмо пока не найдено» при eventual consistency
-или незавершённом request — это `UNKNOWN`, иначе lookup сам создаст duplicate.
-Recovery принадлежит runtime, а не LLM: model proposal не является источником
-фактического состояния внешнего сервиса.
+и не была принята. Обычное «письмо пока не найдено» при согласованности в
+конечном счёте или незавершённом запросе — это `UNKNOWN`, иначе проверка
+`lookup` сама создаст дубликат. Восстановление принадлежит среде выполнения, а
+не языковой модели: предложение модели не является источником фактического
+состояния внешнего сервиса.
 
-Fault-эксперимент в
+Эксперимент с отказом в
 [`test_ambiguous_email_recovery.py`](../../lessons/module_01_provider_contract/tests/test_ambiguous_email_recovery.py)
 проверяет все три ветви:
 
@@ -298,50 +311,57 @@ uv run --frozen pytest -q \
 ```
 
 Наблюдаемый результат — `3 passed`: `FOUND` не повторяет принятое письмо,
-`TERMINALLY_ABSENT` разрешает вторую попытку, а `UNKNOWN` оставляет Agent в
-`EFFECT_UNKNOWN`. Цена решения — durable state, дополнительный lookup,
-задержка и возможная ручная проверка. Для безвредных уведомлений предметная
-политика может предпочесть `at-least-once` и принять duplicate.
+`TERMINALLY_ABSENT` разрешает вторую попытку, а `UNKNOWN` оставляет агента в
+`EFFECT_UNKNOWN`. Цена решения — устойчиво сохранённое состояние,
+дополнительная проверка `lookup`, задержка и возможная ручная проверка. Для
+безвредных уведомлений предметная политика может предпочесть доставку хотя бы
+один раз и принять возможный дубликат.
 
 ### Типичные ошибки
 
-1. Свести ответ к `text: str` и потерять параллельные блоки, IDs и citations.
+1. Свести ответ к `text: str` и потерять параллельные блоки, идентификаторы и
+   цитаты.
 2. Считать любой JSON-подобный текст структурированным ответом без запроса и
    проверки схемы.
-3. Исполнять `tool call` в `ModelClient`, смешивая протокол и полномочия.
-4. Разбирать аргументы `tool` до терминального события потока.
-5. Превращать отсутствие usage в нули и тем самым искажать стоимость.
-6. Считать refusal, safety block или token limit сетевой ошибкой.
-7. Падать на новом provider block либо молча его отбрасывать.
-8. Повторять внутри адаптера без общего retry budget и наблюдаемой причины.
+3. Выполнять вызов инструмента в `ModelClient`, смешивая протокол
+   и полномочия.
+4. Разбирать аргументы вызова инструмента до завершающего события потока.
+5. Превращать отсутствие `usage` в нули и тем самым искажать стоимость.
+6. Считать отказ, блокировку по безопасности или предел токенов сетевой
+   ошибкой.
+7. Падать на новом блоке поставщика либо молча его отбрасывать.
+8. Повторять внутри адаптера без общего лимита повторов и наблюдаемой причины.
 
 ### Ограничения этой фазы
 
-Тема содержит typed Python contracts, `ScriptedModelClient`, stream assembler
-и deterministic tests, но не содержит wire adapter, SSE parser, live API,
-backpressure experiment, deadline propagation, routing или полный JSON Schema
-engine. Поля, которых нет у части providers, остаются optional и не получают
-выдуманные значения. Один fake не доказывает SDK mapping и не закрывает Gate:
-общий suite ещё должны пройти две реальные adapter implementation.
+Тема содержит типизированные контракты Python, `ScriptedModelClient`, сборщик
+потока и детерминированные тесты, но не содержит сетевого адаптера, анализатора
+SSE, реального API, эксперимента с обратным давлением, передачи крайнего срока,
+маршрутизации или полноценного движка JSON Schema. Поля, которых нет у части
+поставщиков, остаются необязательными и не получают выдуманные значения. Одна
+имитация не доказывает корректность преобразования данных набора разработчика
+и не закрывает
+критерий темы: общий набор ещё должны пройти две реальные реализации адаптера.
 
-Recovery-защита — test-only модель причинной границы, а не production
-subsystem. Переданный application-owned ID не доказывает его генерацию, общий
-in-memory store — только stand-in для durable transaction, а
-`TERMINALLY_ABSENT` — строгий oracle, которого обычный sent-folder может не
-предоставлять. Эксперимент не обещает exactly-once.
+Модель восстановления показывает причинную границу только в тестах и не
+является промышленной подсистемой. Переданный идентификатор приложения не доказывает его
+генерацию, общее хранилище в памяти — лишь упрощённая замена сохраняемой
+транзакции, а `TERMINALLY_ABSENT` — строгое проверяемое условие, которого
+обычная папка отправленных сообщений может не предоставлять. Эксперимент не
+обещает гарантии ровно одного выполнения.
 
 ## Вопросы для повторения
 
 1. Почему `ModelResponse(text=...)` недостаточен даже для ответа, который
    визуально содержит только текст?
-2. Где должен исполняться `tool call` и какую информацию обязан передать
-   `ModelClient`?
+2. Где должен выполняться вызов инструмента и какую информацию
+   обязан передать `ModelClient`?
 3. Почему отсутствие `usage` нельзя нормализовать в нулевые токены?
-4. Что должен сделать адаптер с новым неизвестным content block?
+4. Что должен сделать адаптер с новым неизвестным блоком `content`?
 5. Как доказать тестом эквивалентность потокового и обычного ответа?
-6. Почему `call_id=None` нельзя заменять случайным provider ID и где должен
-   жить application-owned `operation_id`?
-7. Почему «не найдено» не разрешает повтор, пока lookup не доказал
+6. Почему `call_id=None` нельзя заменять случайным идентификатором поставщика и
+   где должен жить принадлежащий приложению `operation_id`?
+7. Почему «не найдено» не разрешает повтор, пока проверка `lookup` не доказала
    `TERMINALLY_ABSENT`?
 
 ## Итоги
@@ -350,28 +370,29 @@ in-memory store — только stand-in для durable transaction, а
 поставщика и не сводить все ответы к строке. `ModelRequest` выражает намерение,
 `ModelClient` владеет одним обменом, `ModelEvent` сохраняет причинный порядок
 потока, а `ModelResponse` представляет завершённый результат. Нормализованные
-поля делают Agent loop независимым от поставщика; сохранённые provider data
+поля делают цикл агента независимым от поставщика; сохранённые данные поставщика
 предотвращают потерю новых возможностей и диагностической информации.
-Практика показала дополнительную границу: provider correlation ID нельзя
-подменять application idempotency identity. При неоднозначном side effect
-состояние восстанавливает deterministic runtime, а не LLM; автоматический
-retry допустим только по явной предметной политике и проверяемому oracle.
+Практика показала дополнительную границу: идентификатор корреляции поставщика
+нельзя подменять идентификатором идемпотентности приложения. При неоднозначном
+побочном эффекте состояние восстанавливает детерминированная среда выполнения,
+а не языковая модель; автоматический повтор допустим только по явной
+предметной политике и проверяемому условию.
 
 ## Источники
 
-Внешние API-утверждения проверены по primary documentation `2026-07-31`;
-локальная реализация и tests — `2026-08-01`:
+Внешние утверждения об API проверены по первичной документации `2026-07-31`;
+локальная реализация и тесты — `2026-08-01`:
 
-- [OpenAI Responses: mapping messages to typed Items](https://developers.openai.com/api/docs/guides/migrate-to-responses#2-map-messages-to-items)
-- [OpenAI Responses: typed streaming events](https://developers.openai.com/api/docs/guides/migrate-to-responses#7-update-streaming-consumers)
-- [OpenAI API specification, `POST /v1/responses`](https://developers.openai.com/api/reference/resources/responses/methods/create) — OpenAPI `2.3.0`
-- [Anthropic Messages API: stop reasons](https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons)
-- [Anthropic Messages API: streaming lifecycle](https://platform.claude.com/docs/en/build-with-claude/streaming)
-- [Anthropic API versioning](https://platform.claude.com/docs/en/api/versioning) — `anthropic-version: 2023-06-01`; новые optional fields, enum values и event types могут добавляться
+- [OpenAI Responses: сопоставление сообщений с типизированными элементами](https://developers.openai.com/api/docs/guides/migrate-to-responses#2-map-messages-to-items)
+- [OpenAI Responses: типизированные события потока](https://developers.openai.com/api/docs/guides/migrate-to-responses#7-update-streaming-consumers)
+- [Спецификация OpenAI API, `POST /v1/responses`](https://developers.openai.com/api/reference/resources/responses/methods/create) — OpenAPI `2.3.0`
+- [Anthropic Messages API: причины остановки](https://platform.claude.com/docs/en/build-with-claude/handling-stop-reasons)
+- [Anthropic Messages API: жизненный цикл потока](https://platform.claude.com/docs/en/build-with-claude/streaming)
+- [Версионирование Anthropic API](https://platform.claude.com/docs/en/api/versioning) — `anthropic-version: 2023-06-01`; могут добавляться новые необязательные поля, значения перечислений и типы событий
 - [Gemini `GenerateContentResponse`](https://ai.google.dev/api/generate-content)
-- [Gemini API versions](https://ai.google.dev/gemini-api/docs/api-versions) — Interactions API доступен в stable `v1`; SDK по умолчанию использует `v1beta`
-- [Gemini migration to Interactions API](https://ai.google.dev/gemini-api/docs/migrate-to-interactions) — `generateContent` считается legacy, но остаётся поддерживаемым
+- [Версии Gemini API](https://ai.google.dev/gemini-api/docs/api-versions) — Interactions API доступен в стабильной `v1`; набор разработчика по умолчанию использует `v1beta`
+- [Переход Gemini на Interactions API](https://ai.google.dev/gemini-api/docs/migrate-to-interactions) — `generateContent` считается устаревшим, но остаётся поддерживаемым
 - [Основной план: промпт 1.2](../../docs/senior_ai_agent_engineer_2026.md#промпт-12-независимый-от-поставщика-контракт)
 - [Практика 1.2 и команды запуска](../../lessons/module_01_provider_contract/README.md)
-- [Общий behavioral contract](../../lessons/module_01_provider_contract/tests/contract_suite.py)
-- [Fault-эксперимент восстановления](../../lessons/module_01_provider_contract/tests/test_ambiguous_email_recovery.py)
+- [Общий контракт поведения](../../lessons/module_01_provider_contract/tests/contract_suite.py)
+- [Эксперимент восстановления после отказа](../../lessons/module_01_provider_contract/tests/test_ambiguous_email_recovery.py)

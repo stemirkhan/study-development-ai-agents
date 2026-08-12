@@ -27,14 +27,14 @@
           "nodes": [
             {
               "id": "agent-state",
-              "label": "Состояние Agent\nнужно решение LLM",
+              "label": "Агенту нужно\nрешение модели",
               "rank": 0,
               "order": 0,
               "kind": "actor"
             },
             {
               "id": "requirements",
-              "label": "Требования\ntool · схема · типы данных\ncontext · ответ · поток · эксперимент",
+              "label": "Требования\nинструменты · схема · типы данных\nконтекст · ответ · поток · эксперимент",
               "rank": 1,
               "order": 0,
               "kind": "accent"
@@ -55,7 +55,7 @@
             },
             {
               "id": "no-route",
-              "label": "NoCompatibleRoute\nAgent ожидает решения\nнет полномочий на tool",
+              "label": "NoCompatibleRoute\nагент ожидает решения\nнет полномочий на инструмент",
               "rank": 3,
               "order": 0,
               "kind": "danger"
@@ -69,7 +69,7 @@
             },
             {
               "id": "route-a",
-              "label": "Маршрут A\nодин вызов LLM",
+              "label": "Маршрут A\nодин вызов модели",
               "rank": 4,
               "order": 1,
               "kind": "default"
@@ -111,21 +111,21 @@
             },
             {
               "id": "terminal",
-              "label": "Завершённый\nModelResponse",
+              "label": "Завершённый\nответ модели",
               "rank": 6,
               "order": 3,
               "kind": "success"
             },
             {
               "id": "authority",
-              "label": "Схема · список tool\nпроверка полномочий",
+              "label": "Схема · список инструментов\nпроверка полномочий",
               "rank": 7,
               "order": 1,
               "kind": "accent"
             },
             {
               "id": "agent-result",
-              "label": "Обычный ответ\nвозвращается Agent",
+              "label": "Обычный ответ\nвозвращается агенту",
               "rank": 7,
               "order": 2,
               "kind": "success"
@@ -211,7 +211,7 @@
             {
               "from": "terminal",
               "to": "authority",
-              "label": "если предложен tool",
+              "label": "если предложен инструмент",
               "dashed": true
             },
             {

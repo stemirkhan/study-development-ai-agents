@@ -39,10 +39,22 @@ RAW_HTML = re.compile(
 )
 ALLOWED_IMAGE_SUFFIXES = {".png", ".svg", ".jpg", ".jpeg", ".webp"}
 ALLOWED_EXACT_ENGLISH_NAMES = re.compile(
-    r"\b(?:OpenAI Responses(?: API)?|OpenAI Realtime|Structured Outputs|"
-    r"Fine-grained tool streaming|Streaming responses)\b"
+    r"\b(?:OpenAI\s+Responses(?:\s+API)?|OpenAI\s+Realtime|"
+    r"OpenAI\s+Models\s+API|Anthropic\s+Messages(?:\s+API)?|"
+    r"Anthropic\s+Models\s+API|Anthropic\s+API|Gemini\s+Models\s+API|"
+    r"Gemini\s+API|Google\s+Gemini|Interactions\s+API|JSON\s+Schema|"
+    r"Structured\s+Outputs|Fine-grained\s+tool\s+streaming|"
+    r"Streaming\s+responses)\b"
 )
 DISCOURAGED_ENGLISH_PROSE = {
+    "LLM": "языковая модель",
+    "Agent": "агент",
+    "tool call": "вызов инструмента",
+    "tool": "инструмент",
+    "prompt": "инструкция или запрос",
+    "context": "контекст",
+    "model": "модель",
+    "response": "ответ",
     "fallback": "резервный маршрут или переключение",
     "route": "маршрут",
     "router": "маршрутизатор",
@@ -126,6 +138,25 @@ DISCOURAGED_ENGLISH_PROSE = {
     "live": "реальный",
     "property test": "тест свойств",
     "framework": "фреймворк",
+    "SDK": "набор разработчика",
+    "UI": "интерфейс",
+    "prefix": "начальный фрагмент",
+    "history": "история",
+    "assistant message": "сообщение ассистента",
+    "terminal response": "завершённый ответ",
+    "committed": "подтверждённый",
+    "provisional": "предварительный",
+    "cancellation": "отмена",
+    "cleanup": "освобождение ресурсов",
+    "runtime": "среда выполнения",
+    "adapter": "адаптер",
+    "source": "источник",
+    "consumer": "потребитель",
+    "chunk": "фрагмент",
+    "attempt": "попытка",
+    "intent": "намерение",
+    "timeout": "истечение времени ожидания",
+    "backpressure": "обратное давление",
 }
 
 
@@ -138,6 +169,19 @@ def _english_phrase_pattern(phrase: str) -> re.Pattern[str]:
 DISCOURAGED_ENGLISH_PATTERNS = tuple(
     (_english_phrase_pattern(term), term, replacement)
     for term, replacement in DISCOURAGED_ENGLISH_PROSE.items()
+)
+
+ALLOWED_LATIN_PROSE_TOKENS = {
+    "Anthropic",
+    "Gemini",
+    "Google",
+    "Python",
+    "Workflow",
+}
+LATIN_PROSE_TOKEN = re.compile(
+    r"(?<![A-Za-z0-9_])"
+    r"([A-Za-z][A-Za-z0-9_]*(?:[.:+/-][A-Za-z0-9_]+)*)"
+    r"(?![A-Za-z0-9_])"
 )
 
 
@@ -213,7 +257,7 @@ def prose_without_code(body: str) -> str:
         body,
         flags=re.MULTILINE | re.DOTALL,
     )
-    without_inline = re.sub(r"`[^`\n]+`", "", without_fences)
+    without_inline = re.sub(r"`[^`]+`", "", without_fences)
     return re.sub(r"<!--.*?-->", "", without_inline, flags=re.DOTALL)
 
 
@@ -238,6 +282,35 @@ def discouraged_english(text: str) -> list[tuple[str, str]]:
     ]
 
 
+def _looks_like_exact_identifier(token: str) -> bool:
+    if token in ALLOWED_LATIN_PROSE_TOKENS:
+        return True
+    if len(token) == 1 and token.isupper():
+        return True
+    if token.isupper() and len(token) >= 2:
+        return True
+    if any(character.isdigit() or character in "_.:+/" for character in token):
+        return True
+    uppercase_positions = [
+        index for index, character in enumerate(token) if character.isupper()
+    ]
+    return len(uppercase_positions) >= 2
+
+
+def unapproved_latin_prose(text: str) -> list[str]:
+    remaining = ALLOWED_EXACT_ENGLISH_NAMES.sub("", text)
+    for pattern, _, _ in DISCOURAGED_ENGLISH_PATTERNS:
+        remaining = pattern.sub("", remaining)
+    return sorted(
+        {
+            match.group(1)
+            for match in LATIN_PROSE_TOKEN.finditer(remaining)
+            if not _looks_like_exact_identifier(match.group(1))
+        },
+        key=str.casefold,
+    )
+
+
 def validate_language(
     text: str,
     *,
@@ -246,12 +319,17 @@ def validate_language(
     context: str,
 ) -> None:
     matches = discouraged_english(text)
-    if not matches:
+    unknown = unapproved_latin_prose(text)
+    if not matches and not unknown:
         return
-    details = "; ".join(
+    details = [
         f"{term} → «{replacement}»" for term, replacement in matches
-    )
-    message = f"англицизмы в {context}: {details}"
+    ]
+    if unknown:
+        details.append(
+            "неразрешённая латиница → " + ", ".join(unknown)
+        )
+    message = f"англицизмы в {context}: {'; '.join(details)}"
     if status == "complete":
         findings.error(message)
     else:
