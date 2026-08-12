@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "revision": 26,
+  "revision": 27,
   "updated_at": "2026-08-12",
   "track": {
     "id": "senior-ai-agent-engineer-2026",
@@ -417,6 +417,20 @@
                   "sha256": "cb6fdf433871f9ead48e90995beb5f385cfac0a995bc27a6f021dab6c1facc5f",
                   "git_revision": "de2270aac9420f6feac61c60eaf5557a4432e994",
                   "verified_at": "2026-08-12"
+                },
+                {
+                  "kind": "artifact",
+                  "ref": "notes/module_01_capability_fallback/module_01_capability_fallback.md",
+                  "sha256": "ce789555fc6e4d0fc2a38583b22e4ed41d20fa40bbc04aa7f22b4482edd1b860",
+                  "git_revision": "bf08cc3255e017b02f316f7c558182cc85babe8a",
+                  "verified_at": "2026-08-12"
+                },
+                {
+                  "kind": "artifact",
+                  "ref": "notes/module_01_capability_fallback/module_01_capability_fallback.pdf",
+                  "sha256": "81c837e6b7d29a0272a9f2942ca1ea5bb3433b709780bcec19478cfd10b9a09e",
+                  "git_revision": "bf08cc3255e017b02f316f7c558182cc85babe8a",
+                  "verified_at": "2026-08-12"
                 }
               ]
             },
@@ -691,6 +705,14 @@
     },
     {
       "revision": 26,
+      "at": "2026-08-12",
+      "actor": "ai-tutor",
+      "action": "stage_recorded",
+      "target": "module:01/topic:1.4/stage:theory",
+      "summary": "complete -> complete; added_evidence=2; invalidated=[]"
+    },
+    {
+      "revision": 27,
       "at": "2026-08-12",
       "actor": "ai-tutor",
       "action": "stage_recorded",
