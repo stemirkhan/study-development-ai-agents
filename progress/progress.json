@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "revision": 19,
-  "updated_at": "2026-08-05",
+  "revision": 21,
+  "updated_at": "2026-08-12",
   "track": {
     "id": "senior-ai-agent-engineer-2026",
     "title": "Senior AI Agent Engineer 2026",
@@ -322,12 +322,46 @@
               ]
             },
             "guided_code_tour": {
-              "status": "pending",
-              "evidence": []
+              "status": "complete",
+              "evidence": [
+                {
+                  "kind": "review",
+                  "ref": "Показаны карта компонентов и две сквозные трассы: клиентская отмена и обрыв после принятого префикса; разобраны terminal commit, очистка и граница безопасного retry.",
+                  "result": "passed",
+                  "verified_at": "2026-08-12"
+                }
+              ]
             },
             "understanding_check": {
-              "status": "pending",
-              "evidence": []
+              "status": "complete",
+              "evidence": [
+                {
+                  "kind": "test",
+                  "ref": "uv run --frozen pytest -q lessons/module_01_streaming_cancellation/tests/test_execution.py::test_complete_tool_arguments_interruption_never_retries_or_authorizes_tool",
+                  "result": "1 passed in 0.05s",
+                  "exit_code": 0,
+                  "git_revision": "8d0a58be0adec6b7c0f95838f1fc44e53f850c01",
+                  "verified_at": "2026-08-12"
+                },
+                {
+                  "kind": "review",
+                  "ref": "Обрыв после полного JSON в ToolArgumentsDelta до terminal response: recovery и граница полномочий reserve_inventory",
+                  "result": "passed",
+                  "verified_at": "2026-08-12",
+                  "understanding": {
+                    "version": 1,
+                    "review_type": "failure_analysis",
+                    "agent_impact": "Agent остаётся в состоянии ожидания подтверждённого решения: prefix является draft, committed response и полномочий reserve_inventory нет.",
+                    "decision": "Runtime возвращает ModelStreamInterrupted без retry; application предлагает отмену либо отдельную новую генерацию после решения пользователя. Partial JSON не повышается до tool call, а ручная команда требует отдельной валидации.",
+                    "invariant": "Side effect reserve_inventory выполняется только из ToolCallOutput одного проверенного ResponseCompleted; prefix и события разных попыток не склеиваются.",
+                    "tradeoff": "Подтверждение или новая генерация увеличивают latency и cost и могут отбросить полезный draft; auto-retry/resume отвергнуты из-за semantic drift и риска ошибочного либо двойного резервирования.",
+                    "proof": {
+                      "kind": "test",
+                      "ref": "uv run --frozen pytest -q lessons/module_01_streaming_cancellation/tests/test_execution.py::test_complete_tool_arguments_interruption_never_retries_or_authorizes_tool"
+                    }
+                  }
+                }
+              ]
             },
             "notes_finalized": {
               "status": "pending",
@@ -524,6 +558,22 @@
       "action": "stage_recorded",
       "target": "module:01/topic:1.3/stage:verification",
       "summary": "pending -> complete; added_evidence=1; invalidated=[]"
+    },
+    {
+      "revision": 20,
+      "at": "2026-08-12",
+      "actor": "ai-tutor",
+      "action": "stage_recorded",
+      "target": "module:01/topic:1.3/stage:guided_code_tour",
+      "summary": "pending -> complete; added_evidence=1; invalidated=[]"
+    },
+    {
+      "revision": 21,
+      "at": "2026-08-12",
+      "actor": "ai-tutor",
+      "action": "stage_recorded",
+      "target": "module:01/topic:1.3/stage:understanding_check",
+      "summary": "pending -> complete; added_evidence=2; invalidated=[]"
     }
   ]
 }

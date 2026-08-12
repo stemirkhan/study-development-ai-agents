@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from collections import deque
 from collections.abc import AsyncIterator, Callable
 from dataclasses import FrozenInstanceError
@@ -27,8 +28,13 @@ from lessons.module_01_provider_contract.implementation.contracts import (
     TextDelta,
     TextOutput,
     TimeoutPhase,
+    ToolArgumentsDelta,
+    ToolCallOutput,
     Usage,
     UsageReported,
+)
+from lessons.module_01_provider_contract.implementation.stream_assembly import (
+    CollectedStream,
 )
 from lessons.module_01_streaming_cancellation.implementation.execution import (
     RateLimitRetryPolicy,
@@ -215,6 +221,37 @@ async def wait_until(predicate: Callable[[], bool]) -> None:
     raise AssertionError("condition did not become true")
 
 
+class RecordingInventoryTool:
+    """A side-effect spy reached only through the committed-response boundary."""
+
+    def __init__(self) -> None:
+        self.calls: list[ToolCallOutput] = []
+
+    def execute(self, call: ToolCallOutput) -> None:
+        self.calls.append(call)
+
+
+def dispatch_committed_reservations(
+    collected: object,
+    tool: RecordingInventoryTool,
+) -> None:
+    """Grant tool authority only to a stream with a validated terminal event."""
+
+    if not isinstance(collected, CollectedStream):
+        raise TypeError("tool authority requires a committed stream")
+    if not collected.events or not isinstance(
+        collected.events[-1],
+        ResponseCompleted,
+    ):
+        raise ValueError("committed stream must end with ResponseCompleted")
+    if collected.events[-1].response is not collected.response:
+        raise ValueError("terminal event and collected response disagree")
+
+    for output in collected.response.outputs:
+        if isinstance(output, ToolCallOutput) and output.name == "reserve_inventory":
+            tool.execute(output)
+
+
 async def test_transport_break_after_prefix_preserves_exact_events() -> None:
     request = make_request()
     started = ResponseStarted(1, raw("start"), request.request_id, "r-1", MODEL)
@@ -240,6 +277,127 @@ async def test_transport_break_after_prefix_preserves_exact_events() -> None:
     assert [call.attempt.number for call in client.calls] == [1]
     assert client.closed_attempts == (1,)
     assert clock.pending_deadlines == ()
+
+
+async def test_complete_tool_arguments_interruption_never_retries_or_authorizes_tool(
+) -> None:
+    request = make_request("inventory-partial")
+    raw_arguments = '{"sku":"sku-42","quantity":2}'
+    started = ResponseStarted(
+        1,
+        raw("start"),
+        request.request_id,
+        "response-partial",
+        MODEL,
+    )
+    delta = ToolArgumentsDelta(
+        2,
+        raw("arguments.delta"),
+        0,
+        "call-reserve-partial",
+        "reserve_inventory",
+        raw_arguments,
+    )
+    error = ModelTransportError("connection reset", received_bytes=True)
+    partial_client = ControlledStreamingClient(
+        (AttemptScript((Emit(started), Emit(delta), Fail(error))),)
+    )
+    tool = RecordingInventoryTool()
+
+    with pytest.raises(ModelStreamInterrupted) as captured:
+        collected = await StreamingRuntime(time=ManualTime()).collect(
+            partial_client,
+            request,
+            deadline=Deadline(10),
+        )
+        dispatch_committed_reservations(collected, tool)
+
+    candidate = json.loads(raw_arguments)
+    assert candidate == {"sku": "sku-42", "quantity": 2}
+    assert captured.value.events == (started, delta)
+    assert captured.value.cause is error
+    assert not any(
+        isinstance(event, (OutputCompleted, ResponseCompleted))
+        for event in captured.value.events
+    )
+    with pytest.raises(TypeError, match="committed stream"):
+        dispatch_committed_reservations(candidate, tool)
+    assert tool.calls == []
+    assert [call.attempt.number for call in partial_client.calls] == [1]
+    assert partial_client.closed_attempts == (1,)
+
+    # A user-confirmed regeneration is a new operation, not a continuation
+    # or hidden retry of the interrupted attempt.
+    confirmed_request = make_request("inventory-confirmed")
+    confirmed_arguments = '{"sku":"sku-84","quantity":1}'
+    confirmed_call = ToolCallOutput(
+        call_id="call-reserve-confirmed",
+        name="reserve_inventory",
+        arguments={"sku": "sku-84", "quantity": 1},
+        raw_arguments=confirmed_arguments,
+    )
+    confirmed_response = ModelResponse(
+        request_id=confirmed_request.request_id,
+        provider=PROVIDER,
+        model=MODEL,
+        response_id="response-confirmed",
+        outcome=ResponseOutcome.TOOL_REQUESTED,
+        outputs=(confirmed_call,),
+        usage=None,
+        provider_payload=raw("response"),
+    )
+    confirmed_client = ControlledStreamingClient(
+        (
+            AttemptScript(
+                (
+                    Emit(
+                        ResponseStarted(
+                            1,
+                            raw("start"),
+                            confirmed_request.request_id,
+                            confirmed_response.response_id,
+                            MODEL,
+                        )
+                    ),
+                    Emit(
+                        ToolArgumentsDelta(
+                            2,
+                            raw("arguments.delta"),
+                            0,
+                            confirmed_call.call_id,
+                            confirmed_call.name,
+                            confirmed_arguments,
+                        )
+                    ),
+                    Emit(
+                        OutputCompleted(
+                            3,
+                            raw("output.completed"),
+                            0,
+                            confirmed_call,
+                        )
+                    ),
+                    Emit(
+                        ResponseCompleted(
+                            4,
+                            raw("response.completed"),
+                            confirmed_response,
+                        )
+                    ),
+                )
+            ),
+        )
+    )
+
+    confirmed = await StreamingRuntime(time=ManualTime()).collect(
+        confirmed_client,
+        confirmed_request,
+        deadline=Deadline(10),
+    )
+    dispatch_committed_reservations(confirmed, tool)
+
+    assert tool.calls == [confirmed_call]
+    assert [call.attempt.number for call in confirmed_client.calls] == [1]
 
 
 async def test_caller_cancellation_reaches_blocked_source() -> None:
