@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "revision": 24,
+  "revision": 25,
   "updated_at": "2026-08-12",
   "track": {
     "id": "senior-ai-agent-engineer-2026",
@@ -388,8 +388,23 @@
           "title": "Возможности и резервный маршрут",
           "stages": {
             "theory": {
-              "status": "in_progress",
-              "evidence": []
+              "status": "complete",
+              "evidence": [
+                {
+                  "kind": "artifact",
+                  "ref": "notes/module_01_capability_fallback/module_01_capability_fallback.md",
+                  "sha256": "72313ac0c8ec638e7d6dced369e5e4e4ef3d9f0b5c6d911512c9b85b17366cf4",
+                  "git_revision": "c2612cf0af35cd87ff9e73e75cffef9b8a5290f9",
+                  "verified_at": "2026-08-12"
+                },
+                {
+                  "kind": "artifact",
+                  "ref": "notes/module_01_capability_fallback/module_01_capability_fallback.pdf",
+                  "sha256": "83c52f3769cb0173731d03b672175a1a28c6dba5bc509dfb241a47efa03bc5bb",
+                  "git_revision": "c2612cf0af35cd87ff9e73e75cffef9b8a5290f9",
+                  "verified_at": "2026-08-12"
+                }
+              ]
             },
             "implementation": {
               "status": "pending",
@@ -651,6 +666,14 @@
       "action": "topic_started",
       "target": "module:01/topic:1.4",
       "summary": "Начата тема: Возможности и резервный маршрут"
+    },
+    {
+      "revision": 25,
+      "at": "2026-08-12",
+      "actor": "ai-tutor",
+      "action": "stage_recorded",
+      "target": "module:01/topic:1.4/stage:theory",
+      "summary": "in_progress -> complete; added_evidence=2; invalidated=[]"
     }
   ]
 }
