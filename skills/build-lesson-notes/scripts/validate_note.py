@@ -13,7 +13,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-from diagram_support import DiagramError, validate_rendered_png
+from diagram_support import DiagramError, load_diagram, validate_rendered_png
 
 try:
     import markdown
@@ -38,6 +38,107 @@ RAW_HTML = re.compile(
     flags=re.IGNORECASE | re.DOTALL,
 )
 ALLOWED_IMAGE_SUFFIXES = {".png", ".svg", ".jpg", ".jpeg", ".webp"}
+ALLOWED_EXACT_ENGLISH_NAMES = re.compile(
+    r"\b(?:OpenAI Responses(?: API)?|OpenAI Realtime|Structured Outputs|"
+    r"Fine-grained tool streaming|Streaming responses)\b"
+)
+DISCOURAGED_ENGLISH_PROSE = {
+    "fallback": "резервный маршрут или переключение",
+    "route": "маршрут",
+    "router": "маршрутизатор",
+    "routing": "маршрутизация",
+    "capability": "возможность",
+    "requirements": "требования",
+    "preference": "критерий предпочтения",
+    "profile": "профиль",
+    "match": "соответствие",
+    "gap": "несоответствие",
+    "provider": "поставщик",
+    "availability": "доступность",
+    "semantic": "смысловой",
+    "typed": "типизированный",
+    "fail-closed": "отказ при неопределённости",
+    "best-effort": "без гарантии",
+    "mutable": "изменяемый",
+    "immutable": "неизменяемый",
+    "versioned": "версионированный",
+    "experimental feature": "экспериментальная возможность",
+    "constraint": "ограничение",
+    "mode": "режим",
+    "input": "входные данные",
+    "output": "выходные данные или ответ",
+    "modality": "тип данных",
+    "stream": "поток",
+    "streaming": "потоковая выдача",
+    "event": "событие",
+    "deadline": "крайний срок",
+    "budget": "лимит",
+    "side effect": "побочный эффект",
+    "execution flow": "поток выполнения",
+    "execution authority": "полномочия на выполнение",
+    "server-side": "на стороне сервера",
+    "client-side": "на стороне клиента",
+    "reconciliation": "сверка состояния",
+    "allowlist": "список разрешённых значений",
+    "authorization": "проверка полномочий",
+    "idempotency": "идемпотентность",
+    "registry": "реестр",
+    "ranking": "ранжирование",
+    "health": "работоспособность",
+    "latency": "задержка",
+    "cost": "стоимость",
+    "quality": "качество",
+    "candidate": "кандидат",
+    "eligible": "допустимый",
+    "terminal": "завершённый",
+    "partial": "частичный или оборванный",
+    "hidden": "скрытый",
+    "transparent": "неявный",
+    "upper layer": "вызывающий слой",
+    "upper runtime": "вызывающий слой",
+    "state": "состояние",
+    "decision": "решение",
+    "proposal": "предложение",
+    "exchange": "запрос к поставщику",
+    "request": "запрос",
+    "application": "приложение",
+    "template": "шаблон",
+    "metadata": "метаданные",
+    "manifest": "описание возможностей",
+    "provenance": "источник сведений",
+    "probe": "контрольный запрос",
+    "preflight": "предварительная проверка",
+    "snapshot": "снимок версии",
+    "alias": "псевдоним",
+    "endpoint": "точка API",
+    "header": "заголовок",
+    "entitlement": "доступ учётной записи",
+    "policy": "политика",
+    "retry": "повторная попытка",
+    "failure": "сбой",
+    "report": "отчёт",
+    "trace": "трасса или журнал",
+    "replay": "воспроизведение",
+    "audit": "аудит",
+    "production": "промышленная среда",
+    "static": "статический",
+    "deterministic": "детерминированный",
+    "live": "реальный",
+    "property test": "тест свойств",
+    "framework": "фреймворк",
+}
+
+
+def _english_phrase_pattern(phrase: str) -> re.Pattern[str]:
+    words = phrase.split()
+    joined = r"[- ]".join(re.escape(word) for word in words)
+    return re.compile(rf"\b{joined}s?\b", re.IGNORECASE)
+
+
+DISCOURAGED_ENGLISH_PATTERNS = tuple(
+    (_english_phrase_pattern(term), term, replacement)
+    for term, replacement in DISCOURAGED_ENGLISH_PROSE.items()
+)
 
 
 @dataclass
@@ -116,6 +217,47 @@ def prose_without_code(body: str) -> str:
     return re.sub(r"<!--.*?-->", "", without_inline, flags=re.DOTALL)
 
 
+def prose_for_language_check(body: str) -> str:
+    prose = prose_without_code(body)
+    prose = re.sub(
+        r"(?<=\])\((?:\\.|[^()\n]|\([^()\n]*\))*\)",
+        "",
+        prose,
+    )
+    prose = re.sub(r"^\s*\[[^\]]+\]:\s*\S+.*$", "", prose, flags=re.MULTILINE)
+    prose = re.sub(r"<https?://[^>]+>", "", prose)
+    return re.sub(r"https?://\S+", "", prose)
+
+
+def discouraged_english(text: str) -> list[tuple[str, str]]:
+    text = ALLOWED_EXACT_ENGLISH_NAMES.sub("", text)
+    return [
+        (term, replacement)
+        for pattern, term, replacement in DISCOURAGED_ENGLISH_PATTERNS
+        if pattern.search(text)
+    ]
+
+
+def validate_language(
+    text: str,
+    *,
+    status: str,
+    findings: Findings,
+    context: str,
+) -> None:
+    matches = discouraged_english(text)
+    if not matches:
+        return
+    details = "; ".join(
+        f"{term} → «{replacement}»" for term, replacement in matches
+    )
+    message = f"англицизмы в {context}: {details}"
+    if status == "complete":
+        findings.error(message)
+    else:
+        findings.warning(message)
+
+
 class _ImageHTMLParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
@@ -148,7 +290,13 @@ def markdown_images(body: str) -> list[tuple[str, str]]:
     return parser.images
 
 
-def validate_images(body: str, note_path: Path | None, findings: Findings) -> None:
+def validate_images(
+    body: str,
+    note_path: Path | None,
+    findings: Findings,
+    *,
+    status: str,
+) -> None:
     try:
         images = markdown_images(body)
     except RuntimeError as exc:
@@ -231,8 +379,21 @@ def validate_images(body: str, note_path: Path | None, findings: Findings) -> No
                 continue
             try:
                 validate_rendered_png(source, image_path)
+                document = load_diagram(source)
             except DiagramError as exc:
                 findings.error(f"invalid diagram {raw_target}: {exc}")
+                continue
+            labels = [document.title]
+            labels.extend(node["label"] for node in document.data["nodes"])
+            labels.extend(
+                edge.get("label", "") for edge in document.data["edges"]
+            )
+            validate_language(
+                "\n".join(labels),
+                status=status,
+                findings=findings,
+                context=f"подписях схемы {raw_target}",
+            )
 
 
 def validate(text: str, note_path: Path | None = None) -> Findings:
@@ -282,7 +443,13 @@ def validate(text: str, note_path: Path | None = None) -> Findings:
         )
     if RAW_HTML.search(prose_without_code(body)):
         findings.error("raw HTML is not allowed in lesson notes")
-    validate_images(body, note_path, findings)
+    validate_language(
+        prose_for_language_check(body),
+        status=status,
+        findings=findings,
+        context="связном тексте",
+    )
+    validate_images(body, note_path, findings, status=status)
 
     sections = section_bodies(body)
     missing_sections = [name for name in REQUIRED_SECTIONS if name not in sections]
