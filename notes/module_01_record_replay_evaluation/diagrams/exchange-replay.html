@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="lesson-diagram-template" content="study-sketch-v1">
+    <title>Одна запись проходит через проверку и воспроизводится без сети</title>
+    <link
+      rel="stylesheet"
+      data-lesson-diagram-style
+      href="../../../skills/build-lesson-notes/assets/diagram.css"
+    >
+  </head>
+  <body>
+    <main
+      id="lesson-diagram"
+      aria-labelledby="diagram-title"
+      data-render-state="pending"
+    >
+      <h1 id="diagram-title" class="visually-hidden">Одна запись проходит через проверку и воспроизводится без сети</h1>
+      <script id="diagram-data" type="application/json">
+        {
+          "title": "Одна запись воспроизводит те же наблюдения без сети и внешних эффектов",
+          "width": 1200,
+          "height": 1200,
+          "direction": "top-down",
+          "nodes": [
+            {
+              "id": "request",
+              "label": "Типизированный\nзапрос приложения",
+              "rank": 0,
+              "order": 0,
+              "kind": "info"
+            },
+            {
+              "id": "recorder",
+              "label": "Граница записи\nверсия · попытка · время",
+              "rank": 1,
+              "order": 0,
+              "kind": "accent"
+            },
+            {
+              "id": "provider",
+              "label": "Настоящий API поставщика\nровно одна попытка",
+              "rank": 2,
+              "order": 0,
+              "kind": "info"
+            },
+            {
+              "id": "observations",
+              "label": "Наблюдения по порядку\nсобытия · ответ или сбой",
+              "rank": 3,
+              "order": 0,
+              "kind": "default"
+            },
+            {
+              "id": "jsonl",
+              "label": "Версионированная запись JSONL\nодин факт на строку",
+              "rank": 4,
+              "order": 0,
+              "kind": "accent"
+            },
+            {
+              "id": "validator",
+              "label": "Проверка записи\nсхема · порядок · целостность",
+              "rank": 5,
+              "order": 0,
+              "kind": "danger"
+            },
+            {
+              "id": "replay",
+              "label": "Детерминированная имитация\nстрогое совпадение запроса",
+              "rank": 6,
+              "order": 0,
+              "kind": "success"
+            },
+            {
+              "id": "collector",
+              "label": "Общий контракт модели\nи тот же сборщик потока",
+              "rank": 7,
+              "order": 0,
+              "kind": "accent"
+            },
+            {
+              "id": "fake-tools",
+              "label": "Изолированные инструменты\nбез внешних эффектов",
+              "rank": 8,
+              "order": 0,
+              "kind": "danger"
+            },
+            {
+              "id": "oracle",
+              "label": "Проверяемый результат\nсостояние · решение · полномочия",
+              "rank": 8,
+              "order": 1,
+              "kind": "success"
+            }
+          ],
+          "edges": [
+            {
+              "from": "request",
+              "to": "recorder",
+              "label": "зафиксировать точный вход"
+            },
+            {
+              "from": "recorder",
+              "to": "provider",
+              "label": "выполнить обмен"
+            },
+            {
+              "from": "provider",
+              "to": "observations",
+              "label": "получать без потерь"
+            },
+            {
+              "from": "observations",
+              "to": "jsonl",
+              "label": "добавлять по мере получения"
+            },
+            {
+              "from": "jsonl",
+              "to": "validator",
+              "label": "прочитать"
+            },
+            {
+              "from": "validator",
+              "to": "replay",
+              "label": "разрешить воспроизведение"
+            },
+            {
+              "from": "replay",
+              "to": "collector",
+              "label": "вернуть те же события"
+            },
+            {
+              "from": "collector",
+              "to": "fake-tools",
+              "lane": -1,
+              "dashed": true
+            },
+            {
+              "from": "collector",
+              "to": "oracle",
+              "lane": 1
+            },
+            {
+              "from": "fake-tools",
+              "to": "oracle",
+              "dashed": true
+            }
+          ]
+        }
+      </script>
+    </main>
+    <script
+      data-lesson-diagram-runtime
+      src="../../../skills/build-lesson-notes/assets/diagram.js"
+    ></script>
+  </body>
+</html>
