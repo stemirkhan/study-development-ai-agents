@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="lesson-diagram-template" content="study-sketch-v1">
+    <title>Один и тот же префикс используется на трёх разных уровнях кэширования</title>
+    <link
+      rel="stylesheet"
+      data-lesson-diagram-style
+      href="../../../skills/build-lesson-notes/assets/diagram.css"
+    >
+  </head>
+  <body>
+    <main
+      id="lesson-diagram"
+      aria-labelledby="diagram-title"
+      data-render-state="pending"
+    >
+      <h1 id="diagram-title" class="visually-hidden">Один и тот же префикс используется на трёх разных уровнях кэширования</h1>
+      <script id="diagram-data" type="application/json">
+        {
+          "title": "Совпавший префикс сокращает предварительное заполнение, но не заменяет генерацию",
+          "width": 1200,
+          "height": 1180,
+          "direction": "top-down",
+          "nodes": [
+            {
+              "id": "request",
+              "label": "Новый запрос\nобщий префикс\nи суффикс",
+              "rank": 0,
+              "order": 0,
+              "kind": "info"
+            },
+            {
+              "id": "provider-cache",
+              "label": "Договор поставщика\nсрок · область · метрики",
+              "rank": 1,
+              "order": 0,
+              "kind": "info"
+            },
+            {
+              "id": "prefix-cache",
+              "label": "Кэш префиксов\nточные совместимые блоки",
+              "rank": 2,
+              "order": 0,
+              "kind": "accent"
+            },
+            {
+              "id": "tenant-boundary",
+              "label": "Граница арендатора приложения\nотдельная область ключей",
+              "rank": 2,
+              "order": 1,
+              "kind": "danger"
+            },
+            {
+              "id": "cache-hit",
+              "label": "Попадание\nготовые KV-блоки",
+              "rank": 3,
+              "order": 0,
+              "kind": "success"
+            },
+            {
+              "id": "cache-miss",
+              "label": "Промах\nобщий ввод не вычислен",
+              "rank": 3,
+              "order": 1,
+              "kind": "default"
+            },
+            {
+              "id": "prefill",
+              "label": "Предварительное заполнение\nобработать недостающие токены",
+              "rank": 4,
+              "order": 0,
+              "kind": "info"
+            },
+            {
+              "id": "kv-cache",
+              "label": "KV-кэш последовательности\nключи и значения по позициям",
+              "rank": 5,
+              "order": 0,
+              "kind": "accent"
+            },
+            {
+              "id": "decode",
+              "label": "Пошаговая генерация\nчитать прошлое\nи дописывать новое",
+              "rank": 6,
+              "order": 0,
+              "kind": "success"
+            },
+            {
+              "id": "response",
+              "label": "Новый ответ модели",
+              "rank": 7,
+              "order": 0,
+              "kind": "success"
+            },
+            {
+              "id": "agent-boundary",
+              "label": "Проверка завершения и полномочий\nдо изменения состояния агента",
+              "rank": 8,
+              "order": 0,
+              "kind": "danger"
+            }
+          ],
+          "edges": [
+            {
+              "from": "request",
+              "to": "provider-cache"
+            },
+            {
+              "from": "provider-cache",
+              "to": "prefix-cache",
+              "label": "проверить префикс"
+            },
+            {
+              "from": "tenant-boundary",
+              "to": "prefix-cache",
+              "label": "разделить ключи",
+              "lane": 1,
+              "dashed": true
+            },
+            {
+              "from": "prefix-cache",
+              "to": "cache-hit",
+              "label": "найдено",
+              "lane": -1
+            },
+            {
+              "from": "prefix-cache",
+              "to": "cache-miss",
+              "label": "не найдено",
+              "lane": 1
+            },
+            {
+              "from": "cache-hit",
+              "to": "prefill",
+              "lane": -1
+            },
+            {
+              "from": "cache-miss",
+              "to": "prefill",
+              "lane": 1
+            },
+            {
+              "from": "prefill",
+              "to": "kv-cache"
+            },
+            {
+              "from": "kv-cache",
+              "to": "decode"
+            },
+            {
+              "from": "decode",
+              "to": "response",
+              "label": "завершить"
+            },
+            {
+              "from": "response",
+              "to": "agent-boundary",
+              "label": "проверить ответ"
+            }
+          ]
+        }
+      </script>
+    </main>
+    <script
+      data-lesson-diagram-runtime
+      src="../../../skills/build-lesson-notes/assets/diagram.js"
+    ></script>
+  </body>
+</html>
