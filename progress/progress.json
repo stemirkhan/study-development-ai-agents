@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "revision": 29,
+  "revision": 30,
   "updated_at": "2026-08-25",
   "track": {
     "id": "senior-ai-agent-engineer-2026",
@@ -465,8 +465,15 @@
               ]
             },
             "guided_code_tour": {
-              "status": "pending",
-              "evidence": []
+              "status": "in_progress",
+              "evidence": [
+                {
+                  "kind": "review",
+                  "ref": "Показаны карта файлов, сквозная трасса primary-a -> effect-free failure -> fallback-b и границы CapabilityRequirements/CapabilityProfile/CapabilityRouter.",
+                  "result": "partial",
+                  "verified_at": "2026-08-25"
+                }
+              ]
             },
             "understanding_check": {
               "status": "pending",
@@ -756,6 +763,14 @@
       "action": "stage_recorded",
       "target": "module:01/topic:1.4/stage:verification",
       "summary": "pending -> complete; added_evidence=1; invalidated=[]"
+    },
+    {
+      "revision": 30,
+      "at": "2026-08-25",
+      "actor": "ai-tutor",
+      "action": "stage_recorded",
+      "target": "module:01/topic:1.4/stage:guided_code_tour",
+      "summary": "pending -> in_progress; added_evidence=1; invalidated=[]"
     }
   ]
 }
