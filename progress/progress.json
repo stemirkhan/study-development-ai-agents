@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "revision": 27,
-  "updated_at": "2026-08-12",
+  "revision": 29,
+  "updated_at": "2026-08-25",
   "track": {
     "id": "senior-ai-agent-engineer-2026",
     "title": "Senior AI Agent Engineer 2026",
@@ -435,12 +435,34 @@
               ]
             },
             "implementation": {
-              "status": "pending",
-              "evidence": []
+              "status": "complete",
+              "evidence": [
+                {
+                  "kind": "artifact",
+                  "ref": "lessons/module_01_capability_fallback/implementation/routing.py",
+                  "sha256": "26af3151d3535f7ed0c00123bbf0addb3d64e43515419fbfdddf4000bb018828",
+                  "git_revision": "88588d6e758f8f2a1a93862507f22eff8f2a7f7c",
+                  "verified_at": "2026-08-25"
+                },
+                {
+                  "kind": "commit",
+                  "ref": "88588d6e758f8f2a1a93862507f22eff8f2a7f7c",
+                  "verified_at": "2026-08-25"
+                }
+              ]
             },
             "verification": {
-              "status": "pending",
-              "evidence": []
+              "status": "complete",
+              "evidence": [
+                {
+                  "kind": "test",
+                  "ref": "uv run --frozen pytest -q lessons/module_01_capability_fallback/tests lessons/module_01_provider_contract/tests",
+                  "result": "116 passed in 0.72s",
+                  "exit_code": 0,
+                  "git_revision": "88588d6e758f8f2a1a93862507f22eff8f2a7f7c",
+                  "verified_at": "2026-08-25"
+                }
+              ]
             },
             "guided_code_tour": {
               "status": "pending",
@@ -718,6 +740,22 @@
       "action": "stage_recorded",
       "target": "module:01/topic:1.4/stage:theory",
       "summary": "complete -> complete; added_evidence=2; invalidated=[]"
+    },
+    {
+      "revision": 28,
+      "at": "2026-08-25",
+      "actor": "ai-tutor",
+      "action": "stage_recorded",
+      "target": "module:01/topic:1.4/stage:implementation",
+      "summary": "pending -> complete; added_evidence=2; invalidated=[]"
+    },
+    {
+      "revision": 29,
+      "at": "2026-08-25",
+      "actor": "ai-tutor",
+      "action": "stage_recorded",
+      "target": "module:01/topic:1.4/stage:verification",
+      "summary": "pending -> complete; added_evidence=1; invalidated=[]"
     }
   ]
 }
